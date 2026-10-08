@@ -1,0 +1,43 @@
+services:
+  carddock:
+    build: .
+    image: carddock:0.12.0-beta.1
+    container_name: carddock
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}:8080"
+    environment:
+      ACCESS_TOKEN: "${ACCESS_TOKEN:?请在 .env 中设置访问密钥}"
+      SOURCE_ROOTS: /sources
+      TARGET_ROOTS: /destinations/primary
+      STATE_DIR: /state
+      HOST_MOUNTINFO: /host/mountinfo
+    volumes:
+      - type: bind
+        source: ${NAS_CARD_ROOT:?请设置读卡器自动挂载父目录}
+        target: /sources
+        read_only: true
+        bind:
+          propagation: rslave
+          create_host_path: false
+      - type: bind
+        source: ${NAS_PRIMARY:?请设置主盘目录}
+        target: /destinations/primary
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /proc/1/mountinfo
+        target: /host/mountinfo
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./state:/state
+      - /sys:/sys:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,11 @@
+# 显式选择备份时与 compose.yaml 合并使用。
+services:
+  carddock:
+    environment:
+      TARGET_ROOTS: /destinations/primary:/destinations/backup
+    volumes:
+      - type: bind
+        source: ${NAS_BACKUP:?请设置备份目录}
+        target: /destinations/backup
+        bind:
+          create_host_path: false

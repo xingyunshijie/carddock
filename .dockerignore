@@ -1,0 +1,8 @@
+state
+.env
+__pycache__
+tests
+deployment
+dist
+.git
+.DS_Store

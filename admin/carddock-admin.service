@@ -1,0 +1,18 @@
+[Unit]
+Description=CardDock local NAS administrator authentication
+After=local-fs.target
+[Service]
+Type=simple
+ExecStart="@PYTHON@" /usr/local/lib/carddock-admin/nas_auth.py
+User=root
+Group=@APP_GID@
+UMask=0077
+RuntimeDirectory=carddock-admin
+RuntimeDirectoryMode=0750
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX
+[Install]
+WantedBy=multi-user.target
