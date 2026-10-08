@@ -3,7 +3,7 @@
 import hashlib,re,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-FILES=['VERSION','README.md','LICENSE','CHANGELOG.md','PORTABLE-INSTALL.md','Dockerfile','.dockerignore','.env.example','compose.yaml','compose.backup.yaml','deploy.py','access-key.py','update.sh','rollback.sh','setup.html','setup.js']
+FILES=['CardDock-help.html','VERSION','README.md','LICENSE','CHANGELOG.md','PORTABLE-INSTALL.md','Dockerfile','.dockerignore','.env.example','compose.yaml','compose.backup.yaml','deploy.py','access-key.py','update.sh','rollback.sh','setup.html','setup.js']
 FOLDERS=['app','admin','docs','packaging','tests']
 def build():
     version=(ROOT/'VERSION').read_text().strip()

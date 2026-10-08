@@ -17,7 +17,7 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s tests -v
       - run: node tests/test_setup.js && node --check app/static/app.js && node --check app/static/access-key.js
-      - run: python3 packaging/help_page.py && git diff --exit-code app/static/help.html
+      - run: python3 packaging/help_page.py && git diff --exit-code app/static/help.html CardDock-help.html
       - run: python3 packaging/release.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -80,7 +80,8 @@ jobs:
           docker manifest create "$IMAGE:$VERSION" "$IMAGE:$VERSION-amd64" "$IMAGE:$VERSION-arm64"
           docker manifest push "$IMAGE:$VERSION"
           cp docs/HELP.md "dist/影像归仓-安装与使用帮助.md"
-          (cd dist && sha256sum *.zip *.tar.gz *.md > SHA256SUMS)
+          cp CardDock-help.html dist/
+          (cd dist && sha256sum *.zip *.tar.gz *.md *.html > SHA256SUMS)
           FLAGS=()
           if [[ "$VERSION" == *-* ]]; then FLAGS+=(--prerelease); fi
           gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "影像归仓 $VERSION" --notes-file CHANGELOG.md "${FLAGS[@]}"
