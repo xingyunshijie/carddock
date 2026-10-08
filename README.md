@@ -12,7 +12,7 @@
 
 ## 下载与安装
 
-到 [Releases](https://github.com/xingyunshijie/carddock/releases) 下载版本安装包及匹配架构的镜像。若尚无 Release，表示首轮构建尚未完成，源码不等于已验证镜像。
+到 [Releases](https://github.com/xingyunshijie/carddock/releases) 下载版本安装包及匹配架构的镜像。首版已通过 AMD64/ARM64 容器构建、源只读检查及合成文件主备 SHA256 测试。
 
 - **绿联 Docker 图形界面安装**：[安装指南](docs/UGREEN.md)。使用包内 `setup.html` 离线生成你的 Compose 配置，输入实际路径、UID/GID；不收集数据。
 - **终端安装、启动前检查、更新与回退**：[通用安装指南](PORTABLE-INSTALL.md)。

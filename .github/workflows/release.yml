@@ -79,7 +79,7 @@ jobs:
           done
           docker manifest create "$IMAGE:$VERSION" "$IMAGE:$VERSION-amd64" "$IMAGE:$VERSION-arm64"
           docker manifest push "$IMAGE:$VERSION"
-          cp docs/HELP.md "dist/影像归仓-安装与使用帮助.md"
+          cp docs/HELP.md dist/CardDock-help.md
           cp CardDock-help.html dist/
           (cd dist && sha256sum *.zip *.tar.gz *.md *.html > SHA256SUMS)
           FLAGS=()
