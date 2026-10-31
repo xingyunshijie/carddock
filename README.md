@@ -8,6 +8,8 @@
 
 ## 显示 NAS 的所有共享文件夹
 
+[下载共享目录安装工具](https://github.com/xingyunshijie/carddock/releases/latest/download/carddock-nas-shares.py)
+
 完整共享目录模式请按 [共享文件夹安装.md](共享文件夹安装.md) 做一次安装授权。工具自动读取安装所在 NAS 的共享定义，不固定任何用户的文件夹名称。授权后点击“所有存储区”，显示该 NAS 的共享文件夹，权限不足时标记原因。
 
 下方21行基础配置仅开放默认文件夹，不能凭空显示尚未映射的其他共享目录。

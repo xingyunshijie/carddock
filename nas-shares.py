@@ -129,7 +129,7 @@ def main():
     if uid > 0 and gid > 0:
         base['services']['carddock']['environment'].update(PUID=str(uid), PGID=str(gid))
     if a.base:
-        base = json.loads(subprocess.check_output(['docker', 'compose', '-f', str(a.base.resolve()), 'config', '--format', 'json'], text=True))
+        base = json.loads(subprocess.check_output(['docker', 'compose', '-p', a.project, '-f', str(a.base.resolve()), 'config', '--format', 'json'], text=True))
     elif a.apply:
         password = getpass.getpass('设置影像归仓登录密码（8–256位）：')
         if not 8 <= len(password) <= 256 or password in ('改成你自己的密码', '请修改为你自己的登录密码') or password.startswith('CHANGE_ME'):
