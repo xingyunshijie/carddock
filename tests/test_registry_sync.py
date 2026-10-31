@@ -16,8 +16,8 @@ class RegistrySyncTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
-        (self.root / 'VERSION').write_text('1.0.0-nas.4')
-        (self.root / 'compose.project.yaml').write_text('image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4\n')
+        (self.root / 'VERSION').write_text('1.5.0')
+        (self.root / 'compose.project.yaml').write_text('image: ghcr.io/xingyunshijie/carddock:1.5.0\n')
         self.manifest = json.dumps({'manifests': [
             {'digest': 'sha256:' + 'a' * 64, 'platform': {'os': 'linux', 'architecture': 'amd64'}},
             {'digest': 'sha256:' + 'b' * 64, 'platform': {'os': 'linux', 'architecture': 'arm64'}},
@@ -73,7 +73,7 @@ class RegistrySyncTest(unittest.TestCase):
             self.assertEqual(inspect.call_count, 5)
             self.assertTrue(latest.args[0][-1].endswith(':latest'))
             config = (self.root / 'out/compose.cn.yaml').read_text()
-            self.assertIn('registry.example.com/team/carddock:1.0.0-nas.4', config)
+            self.assertIn('registry.example.com/team/carddock:1.5.0', config)
             receipt = (self.root / 'out/registry-verification.json').read_text()
             self.assertNotIn('test-only', receipt)
 

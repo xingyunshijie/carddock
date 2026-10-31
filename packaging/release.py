@@ -2,9 +2,15 @@
 """Build the public installer from this repository; never package runtime state."""
 import hashlib,json,pathlib,re,zipfile
 root=pathlib.Path(__file__).resolve().parents[1];version=(root/'VERSION').read_text().strip()
-match=re.fullmatch(r'1\.0\.0-nas\.(\d+)',version)
-if not match:raise SystemExit('Unexpected NAS version')
-folder='carddock-nas-1.0-b'+match[1];dist=root/'dist';dist.mkdir(exist_ok=True)
+legacy=re.fullmatch(r'1\.0\.0-nas\.(\d+)',version)
+if legacy:
+ folder='carddock-nas-1.0-b'+legacy[1]
+else:
+ match=re.fullmatch(r'([1-9]\d*)\.(\d+)\.(\d+)',version)
+ if not match:raise SystemExit('Unexpected NAS version')
+ display=match[1]+'.'+match[2]+('.'+match[3] if match[3]!='0' else '')
+ folder='carddock-nas-'+display
+dist=root/'dist';dist.mkdir(exist_ok=True)
 archive=dist/(folder+'-install.zip')
 selected=[]
 for p in root.rglob('*'):

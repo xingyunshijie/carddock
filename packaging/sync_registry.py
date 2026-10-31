@@ -43,7 +43,7 @@ def inspect(image):
 def sync(image, output, root=ROOT):
     image = validate_image(image)
     version = (root / 'VERSION').read_text().strip()
-    if not re.fullmatch(r'1\.0\.0-nas\.\d+', version):
+    if not re.fullmatch(r'(?:[1-9]\d*\.\d+\.\d+|1\.0\.0-nas\.\d+)', version):
         raise ValueError('拒绝同步未知版本格式')
     user, password = os.getenv('CN_REGISTRY_USERNAME'), os.getenv('CN_REGISTRY_PASSWORD')
     if not user or not password:
