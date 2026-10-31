@@ -59,10 +59,12 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
    if algorithm!='sha256':assert report['skipped']==len(samples)*2
    print('PASS native Docker startup, login, primary/backup, panorama, retry and '+algorithm,flush=True)
   docker('restart',name)
+  port=docker('port',name,'8080/tcp').rsplit(':',1)[1];url='http://127.0.0.1:'+port
   for _ in range(30):
    try:
     token=request('login',{'password':'CI-Only-Password-2026'},False)['token'];break
    except (OSError,ValueError):time.sleep(1)
+  else:raise RuntimeError('Container restart timeout')
   assert request('state')['config']['backups']==['/destinations/backup']
   print('PASS persistent configuration after restart',flush=True)
   request('logout',{})
