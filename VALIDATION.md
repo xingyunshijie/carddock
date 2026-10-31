@@ -4,7 +4,7 @@
 
 ## 验证范围
 
-- 108项 Python 自动测试：全景与延时分类、代理、RAW/JPG伴随文件、多目标、队列、暂停取消、重试、报告、认证和路径保护。
+- 109项 Python 自动测试：全景与延时分类、代理、RAW/JPG伴随文件、多目标、队列、暂停取消、重试、报告、认证和路径保护。
 - 原生 Linux amd64 与 arm64 分别构建完整镜像，运行镜像内的程序及启动检查，没有挂载宿主程序目录。
 - 镜像默认 UID 1000/GID 1000 能写入首次创建的专用数据卷。
 - 空应用目录初始化后降为非 root；已有目录不递归更改所有权。
@@ -15,7 +15,7 @@
 - Docker Compose 语法、JavaScript、启动脚本及源码安装包完整性检查。
 - 通用配置21行，使用项目相对目录，无个人NAS共享名称、IP或存储卷编号。首次目录设置表单已验证登录后显示、选择目录、可选备份和保存。
 
-构建与测试记录：[GitHub Actions](https://github.com/xingyunshijie/carddock/actions/runs/41182163642)。失败的检查会阻止镜像发布；具体结果以该次运行页面为准。
+构建与测试记录：[GitHub Actions](https://github.com/xingyunshijie/carddock/actions/runs/41183167552)。失败的检查会阻止镜像发布；具体结果以该次运行页面为准。
 
 ## 尚需 NAS 实机验收
 
