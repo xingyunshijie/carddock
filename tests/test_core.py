@@ -164,12 +164,20 @@ class IngestTest(unittest.TestCase):
         links=sysroot/'dev/block'; links.mkdir(parents=True); (links/'8:1').symlink_to(disk/'sda1'); (links/'9:0').symlink_to(md)
         mount=self.root/'mountinfo'; mount.write_text(f'22 1 8:1 / {self.src} rw - exfat /dev/sda1 rw\n23 1 9:0 / / rw - ext4 /dev/md0 rw\n')
         self.assertEqual(mount_candidates([self.src.parent],str(mount),str(sysroot)),[])
-    def test_multiple_backups_and_limit(self):
-        self.e.configure({'backups':[str(self.b),str(self.c)]})
-        (self.src/'multiple.jpg').write_bytes(b'photo')
-        j=self.run_job();self.assertEqual(j['status'],'completed');self.assertEqual(j['done'],3)
-        self.assertTrue((self.c/'CARD/JPG/multiple.jpg').exists())
-        with self.assertRaises(ValueError):self.e.configure({'backups':[str(self.b)]*9})
+    def test_only_one_optional_backup(self):
+        before=list(self.e.config['backups'])
+        with self.assertRaisesRegex(ValueError,'一个备份目录'):
+            self.e.configure({'backups':[str(self.b),str(self.c)]})
+        self.assertEqual(self.e.config['backups'],before)
+        with self.assertRaisesRegex(ValueError,'一个备份目录'):
+            self.e.submit(str(self.src),{'backups':[str(self.b),str(self.c)]})
+        self.e.configure({'backups':[str(self.c)]})
+        (self.src/'single.jpg').write_bytes(b'photo')
+        j=self.run_job();self.assertEqual(j['status'],'completed');self.assertEqual(j['done'],2)
+        self.assertTrue((self.c/'CARD/JPG/single.jpg').exists())
+        self.assertFalse((self.b/'CARD/JPG/single.jpg').exists())
+        self.e.configure({'backups':[]})
+        self.assertEqual(self.e.config['backups'],[])
     def test_empty_does_not_signal_safe(self):
         j=self.run_job(); self.assertEqual(j['status'],'failed'); self.assertFalse(j['safe_to_remove'])
     def test_quick_duplicate_uses_hash(self):

@@ -232,7 +232,7 @@ class Engine:
             for k in ('setup_complete','auto','media_only','keep_parents','classify','exclude_proxies','backup_from_primary'):
                 if not isinstance(c[k],bool): raise ValueError('无效开关')
             if not isinstance(c['backups'],list) or not isinstance(c['manual_sources'],list): raise ValueError('无效目录列表')
-            if len(c['backups'])>8: raise ValueError('最多支持八个备份目录')
+            if len(c['backups'])>1: raise ValueError('最多支持一个备份目录')
             self.validate_options(c)
             for p in c['manual_sources']: safe_path(p,self.sources)
             for p in [c['primary']]+c['backups']:
@@ -337,7 +337,7 @@ class Engine:
             if self.active and not enqueue: raise ValueError('已有任务执行中，请加入队列')
             c=json.loads(json.dumps(self.config)); c.update(options or {})
             root=safe_path(source,self.sources); primary=safe_path(c['primary'],self.targets)
-            if not isinstance(c['backups'],list) or len(c['backups'])>8: raise ValueError('最多支持八个备份目录')
+            if not isinstance(c['backups'],list) or len(c['backups'])>1: raise ValueError('最多支持一个备份目录')
             self.validate_options(c)
             backups=[safe_path(p,self.targets) for p in c['backups']]
             paths=[root,primary]+backups

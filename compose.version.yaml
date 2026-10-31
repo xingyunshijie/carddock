@@ -1,6 +1,6 @@
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.5.1
+    image: ghcr.io/xingyunshijie/carddock:1.5.2
     container_name: carddock
     restart: unless-stopped
     ports:
