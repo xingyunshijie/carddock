@@ -55,7 +55,7 @@ def base_configuration():
         'security_opt': ['no-new-privileges:true']}}}
 
 
-def configuration(base, shares):
+def configuration(base, shares, directory=None):
     result = json.loads(json.dumps(base))
     service = result['services']['carddock']
     if service.get('image', '').split(':')[0] == 'ghcr.io/xingyunshijie/carddock':
@@ -77,6 +77,17 @@ def configuration(base, shares):
                                   'bind': {'create_host_path': False}})
     env['NAS_SHARED_ROOT'] = '/shares'
     env['TARGET_LABELS'] = json.dumps(labels, ensure_ascii=False)
+    paths = {}
+    directory = Path(directory or Path.cwd())
+    for volume in service['volumes']:
+        if isinstance(volume, dict):
+            if volume.get('type') != 'bind': continue
+            source, target = volume['source'], volume['target']
+        else:
+            source, target = volume.split(':')[:2]
+            if not source.startswith(('/', '.')): continue
+        paths[target] = str((directory / source).resolve())
+    env['HOST_PATH_MAP'] = json.dumps(paths, ensure_ascii=False)
     return result
 
 
@@ -125,7 +136,7 @@ def main():
     output = a.output.resolve()
     if output.exists():
         raise ValueError('输出配置已存在；请使用新的 --output 文件名，避免覆盖旧配置')
-    write_private(output, configuration(base, shares))
+    write_private(output, configuration(base, shares, output.parent))
     print('已识别并生成共享目录映射：' + '、'.join(shares))
     print('配置文件：' + str(output))
     if a.apply:

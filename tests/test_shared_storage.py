@@ -5,11 +5,11 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from core import physical_overlap
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'app'))
-from shared_storage import shared_roots
+from shared_storage import shared_roots, container_path, host_path
+from core import physical_overlap
 spec = importlib.util.spec_from_file_location('nas_shares', ROOT/'nas-shares.py')
 installer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(installer)
@@ -68,6 +68,15 @@ class SharedStorageTest(unittest.TestCase):
         (parent/'link').symlink_to(outside, target_is_directory=True)
         self.assertEqual(shared_roots(parent), [parent/'实际共享'])
         self.assertEqual(shared_roots(self.root/'missing'), [])
+
+    def test_real_nas_paths_translate_only_within_granted_folders(self):
+        mapping = {'/shares/Photos': '/volumeA/Photos', '/storage': '/volumeA/Photos/archive'}
+        allowed = [Path('/shares/Photos')]
+        self.assertEqual(container_path('/volumeA/Photos/旅拍', mapping, allowed), '/shares/Photos/旅拍')
+        self.assertEqual(container_path('/volumeA/Photos/archive', mapping, allowed), '/shares/Photos/archive')
+        self.assertEqual(container_path('/volumeA/Photos-other', mapping, allowed), '/volumeA/Photos-other')
+        self.assertEqual(host_path('/shares/Photos/旅拍', mapping), '/volumeA/Photos/旅拍')
+        with self.assertRaises(ValueError): container_path('/volumeA/Photos/../secret', mapping, allowed)
 
     def test_duplicate_conflicting_share_names_fail_before_installation(self):
         paths = [self.root/'a', self.root/'b']

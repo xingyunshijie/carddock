@@ -8,9 +8,10 @@ from rules import component
 from core import safe_path
 from key_store import KeyStore, AttemptLimiter, verify_admin
 from authentication import PasswordAuthentication
-from shared_storage import shared_roots
+from shared_storage import shared_roots, container_path, host_path
 
 shares=shared_roots(os.getenv('NAS_SHARED_ROOT','/shares'))
+host_paths=json.loads(os.getenv('HOST_PATH_MAP','{}'))
 targets=list(dict.fromkeys(os.getenv('TARGET_ROOTS','/destinations').split(':')+[str(p) for p in shares]))
 manual=list(dict.fromkeys([p for p in os.getenv('MANUAL_SOURCE_ROOTS','').split(':') if p]+[str(p) for p in shares]))
 engine=Engine(os.getenv('STATE_DIR','/state'),os.getenv('SOURCE_ROOTS','/sources').split(':'),targets,manual)
@@ -60,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/api/state':
                 for job in list(engine.jobs.values()):
                     if job['status'] in ('running','paused','pausing','stopping'): engine.metrics(job)
-                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.5.1','source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
+                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.5.1','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
             elif u.path=='/api/report':
                 ident=q.get('id',[''])[0]
                 with engine.lock:
@@ -76,12 +77,16 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path=='/api/browse':
                 roots=engine.sources if q.get('kind',['target'])[0]=='source' else engine.targets
                 path=q.get('path',[''])[0]
+                if path: path=container_path(path,host_paths,roots)
                 labels=json.loads(os.getenv('TARGET_LABELS','{}'))
                 # Keep historical/default paths valid, but list real NAS shares first.
                 listing=browse_directories(path,roots,labels)
                 if not path and q.get('kind',['target'])[0]=='target' and shares:
                     listing=browse_directories('',shares,labels)
                 listing['shared_folders']=bool(shares)
+                listing['display_path']=host_path(listing['path'],host_paths) if listing['path'] else ''
+                for entry in listing['entries']:
+                    entry['display_path']=host_path(entry['path'],host_paths)
                 self.send(200,listing)
             else: self.send(404,{'error':'Not found'})
         except Exception as e: self.send(400,{'error':str(e)})
@@ -137,7 +142,13 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data,dict):raise ValueError('请求必须为对象')
             if self.path=='/api/logout':
                 password_auth.logout(self.headers.get('Authorization',''));self.send(200,{'ok':True})
-            elif self.path=='/api/config': self.send(200,engine.configure(data))
+            elif self.path=='/api/config':
+                if isinstance(data.get('primary'),str) and data['primary']:
+                    data['primary']=container_path(data['primary'],host_paths,engine.targets)
+                for key,roots in [('backups',engine.targets),('manual_sources',engine.sources)]:
+                    if isinstance(data.get(key),list):
+                        data[key]=[container_path(p,host_paths,roots) if isinstance(p,str) else p for p in data[key]]
+                self.send(200,engine.configure(data))
             elif self.path=='/api/mkdir':
                 parent=safe_path(data['parent'],engine.targets);name=component(data['name'])
                 if not name:raise ValueError('请输入文件夹名')
