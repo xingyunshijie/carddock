@@ -15,7 +15,7 @@
 - Docker Compose 语法、JavaScript、启动脚本及源码安装包完整性检查。
 - 通用配置21行，使用项目相对目录，无个人NAS共享名称、IP或存储卷编号。首次目录设置表单已验证登录后显示、选择目录、可选备份和保存。
 
-构建与测试记录：[GitHub Actions](https://github.com/xingyunshijie/carddock/actions/runs/41179256255)。失败的检查会阻止镜像发布；具体结果以该次运行页面为准。
+构建与测试记录：[GitHub Actions](https://github.com/xingyunshijie/carddock/actions/runs/41179396146)。失败的检查会阻止镜像发布；具体结果以该次运行页面为准。
 
 ## 尚需 NAS 实机验收
 
