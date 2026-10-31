@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run the actual uploaded-directory deployment in a disposable Linux Docker container."""
+"""Exercise the self-contained image without any host program directory."""
 import json,os,pathlib,subprocess,tempfile,time,urllib.request,urllib.error,uuid
 root=pathlib.Path(__file__).resolve().parents[1]
-image=json.loads((root/'compose.project.json').read_text())['services']['carddock']['image']
+image=os.environ.get('CARDDOCK_TEST_IMAGE','carddock:ci')
 def docker(*args):return subprocess.check_output(['docker',*args],text=True).strip()
 with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
  base=pathlib.Path(tmp);source=base/'source';primary=base/'primary';backup=base/'backup';state=base/'state'
@@ -11,10 +11,16 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
  for name in samples:
   p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('synthetic '+name).encode())
  name='carddock-smoke-'+uuid.uuid4().hex[:10]
- args=['run','-d','--name',name,'--user',str(os.getuid())+':'+str(os.getgid()),'--read-only','--tmpfs','/tmp:size=128m,mode=1777','--tmpfs','/opt/carddock-deps:rw,exec,nosuid,nodev,size=32m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','-p','127.0.0.1::8080']
- for key,value in {'AUTHENTICATION_ENABLED':'true','AUTHENTICATION_PASSWORD':'CI-Only-Password-2026','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary:/destinations/backup','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo','PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':'/opt/carddock-deps:/opt/carddock/app'}.items():args+=['-e',key+'='+value]
- for host,target,ro in [(root,'/opt/carddock',True),(source,'/sources',True),(primary,'/destinations/primary',False),(backup,'/destinations/backup',False),(state,'/state',False),(pathlib.Path('/proc/1/mountinfo'),'/host/mountinfo',True),(pathlib.Path('/sys'),'/sys',True)]:args+=['--mount','type=bind,source='+str(host)+',target='+target+(',readonly' if ro else '')]
- args += [image,'/bin/sh','/opt/carddock/runtime/start.sh']
+ args=['run','-d','--name',name,'--user',str(os.getuid())+':'+str(os.getgid()),'--read-only','--tmpfs','/tmp:size=128m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','-p','127.0.0.1::8080']
+ for key,value in {'AUTHENTICATION_ENABLED':'true','AUTHENTICATION_PASSWORD':'CI-Only-Password-2026','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary:/destinations/backup','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo','PYTHONDONTWRITEBYTECODE':'1'}.items():args+=['-e',key+'='+value]
+ for host,target,ro in [(source,'/sources',True),(primary,'/destinations/primary',False),(backup,'/destinations/backup',False),(state,'/state',False),(pathlib.Path('/proc/1/mountinfo'),'/host/mountinfo',True),(pathlib.Path('/sys'),'/sys',True)]:args+=['--mount','type=bind,source='+str(host)+',target='+target+(',readonly' if ro else '')]
+ args += [image]
+ volume=name+'-state'
+ docker('volume','create',volume)
+ try:
+  assert docker('run','--rm','--mount','type=volume,source='+volume+',target=/state','--entrypoint','python',image,'-c',"import os;from pathlib import Path;assert os.getuid()==1000;Path('/state/write-test').write_text('ok');print('state-ok')")=='state-ok'
+  print('PASS default non-root user and fresh named state volume',flush=True)
+ finally:docker('volume','rm',volume)
  token=''
  try:
   docker(*args);port=docker('port',name,'8080/tcp').rsplit(':',1)[1];url='http://127.0.0.1:'+port
@@ -52,10 +58,17 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
    assert (primary/'sources/视频代理/film.LRF').exists()
    if algorithm!='sha256':assert report['skipped']==len(samples)*2
    print('PASS native Docker startup, login, primary/backup, panorama, retry and '+algorithm,flush=True)
+  docker('restart',name)
+  for _ in range(30):
+   try:
+    token=request('login',{'password':'CI-Only-Password-2026'},False)['token'];break
+   except (OSError,ValueError):time.sleep(1)
+  assert request('state')['config']['backups']==['/destinations/backup']
+  print('PASS persistent configuration after restart',flush=True)
   request('logout',{})
   try:request('state');raise AssertionError('Logged-out session accepted')
   except urllib.error.HTTPError as e:assert e.code==401
-  print('PASS session logout and strict non-root/read-only container',flush=True)
+  print('PASS session logout and strict non-root/read-only self-contained image',flush=True)
  except Exception:
   subprocess.run(['docker','logs',name],check=False);raise
  finally:subprocess.run(['docker','rm','-f',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)

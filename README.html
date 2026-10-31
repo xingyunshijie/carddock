@@ -1,1 +1,27 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS V1.0 · 构建2</title><style>body{font:16px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#263e30;background:#f2f5f2;margin:0}main{max-width:900px;margin:30px auto;background:#fff;padding:40px;border:1px solid #dce5dd;border-radius:16px}h1{font-size:30px;line-height:1.4}h2{font-size:23px;margin-top:38px;border-top:1px solid #e0e8e1;padding-top:25px}h3{font-size:18px;margin-top:28px}a{color:#26633f}p,li{overflow-wrap:anywhere}code{background:#eff4ef;padding:2px 5px;border-radius:4px;font:13px/1.7 ui-monospace,SFMono-Regular,monospace}pre{background:#183a28;color:#e0efe3;padding:20px;border-radius:10px;overflow:auto}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%;font-size:14px}td{padding:10px;border:1px solid #dce5dc}tr:first-child{font-weight:bold;background:#eff5ef}.table{overflow:auto}img{max-width:100%;height:auto;border:1px solid #dae5dc;border-radius:10px}nav{font-size:14px;color:#536e5b}footer{margin-top:40px;color:#6d8073;font-size:12px}@media(max-width:650px){main{margin:0;padding:22px 18px;border:0;border-radius:0}h1{font-size:25px}}@media print{body{background:white}main{border:0;margin:0;padding:0}nav{display:none}h2{break-after:avoid}tr{break-inside:avoid}}</style><main><nav><a href="README.html">安装包首页</a> · <a href="compose.project.yaml">完整配置</a> · <a href="NAS安装说明.html">安装说明</a> · <a href="UPDATE.html">旧版升级</a> · <a href="功能同步说明.html">功能同步</a></nav><h1>影像归仓 NAS V1.0 · 构建2</h1><p>打开 <a href="NAS安装说明.html">NAS安装说明.html</a>，严格按“容器部署 → 创建 Docker 项目 → 完整配置 → 端口 → 认证 → 使用指南”的顺序安装。</p><p>项目名称 <code>carddock</code>。说明里已经写好整段配置，安装人员修改实际路径和 <code>AUTHENTICATION_PASSWORD</code> 后完整粘贴。打开程序用自己设置的密码登录。</p><p>主盘、备份、归档规则在程序中选择；全景序列与分阶段文件计数等改进保留。</p><ul><li><a href="NAS安装说明.html">完整安装说明</a></li><li><a href="compose.project.yaml">完整 Compose 配置</a></li><li><a href="UPDATE.html">已有实例升级</a></li><li><a href="功能同步说明.html">功能同步说明</a></li><li><a href="VALIDATION.html">验证范围</a></li></ul><p>本版使用官方 Python 运行镜像与包内程序、双架构校验依赖。先将完整目录上传并解压到配置指定的位置；首次部署需要拉取基础镜像。</p><p>2026-10-31 · 云景数码影画 出品</p><footer>影像归仓 NAS V1.0 · 构建2 · 2026-10-31 · 云景数码影画 出品</footer></main><script>document.querySelectorAll('pre').forEach(pre=>{const b=document.createElement('button');b.textContent='复制';b.style.cssText='float:right;margin:0 0 8px 12px;padding:6px 14px;border:1px solid #8da9b0;border-radius:6px;cursor:pointer';pre.before(b);b.onclick=async()=>{const code=pre.querySelector('code');try{await navigator.clipboard.writeText(code.textContent);b.textContent='已复制'}catch(e){const r=document.createRange();r.selectNodeContents(code);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='已选中，请按 Ctrl+C / ⌘C'}}});</script></html>
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS · 构建3</title><style>body{margin:0;background:#f6f7f6;color:#202a25;font:17px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:880px;margin:30px auto;background:#fff;padding:38px;border-radius:16px}h1{font-size:29px}h2{margin-top:42px;color:#08765b}h3{margin-top:28px}a{color:#08765b}pre{padding:22px;background:#172332;color:#edf4f1;overflow:auto;border-radius:12px;font-size:14px;line-height:1.65}code{font-family:ui-monospace,monospace}p code{background:#eef2ef;padding:2px 5px}li{margin:8px 0}@media(max-width:650px){main{margin:0;padding:24px 18px}h1{font-size:25px}}</style><main><h1>CardDock · 影像归仓 NAS</h1><p>云景数码影画 出品 · V1.0 构建3</p><p><strong>Docker → 项目 → 创建 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。</strong></p><p>无需上传程序文件夹，无需配置生成器，无需安装后台认证服务。主盘与备份进入程序后选择。</p><h2>安装</h2><p><a href="NAS安装说明.md">完整安装说明</a> · <a href="compose.project.yaml">可直接粘贴的配置</a></p><pre><code>services:
+  carddock:
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.3
+    container_name: carddock
+    restart: unless-stopped
+    ports:
+      - &quot;18080:8080&quot;
+    environment:
+      TZ: Asia/Shanghai
+      AUTHENTICATION_ENABLED: &quot;true&quot;
+      AUTHENTICATION_PASSWORD: &quot;改成你自己的密码&quot;
+    volumes:
+      - carddock-data:/state
+      - /mnt/@usb:/sources:ro,rslave
+      - /volume2/NASgutai:/storage/area1
+      - /volume3/NAS02:/storage/area2
+      - /volume2/NASgutai:/manual/area1:ro
+      - /volume3/NAS02:/manual/area2:ro
+      - /proc/1/mountinfo:/host/mountinfo:ro
+      - /sys:/sys:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [&quot;no-new-privileges:true&quot;]
+volumes:
+  carddock-data:</code></pre><p>上面两组共享目录按当前 NAS 填写。其他 NAS 修改冒号左侧路径，密码至少12位；详细端口和目录说明见安装说明。</p><p>访问 <code>http://NAS_IP:18080</code>，输入自设密码。主盘、备份、归档规则在软件内设置。</p><h2>功能</h2><p>- 大疆全景序列保留拍摄组，组内 DNG/JPG 不拆分。</p><p>- 延时、普通 RAW/JPG、视频代理分类；拷贝和校验分别计数。</p><p>- SHA-256、XXHash64、BLAKE3、MD5；多份备份、主盘接力、暂停继续、队列和重试。</p><p>- JSON/TXT、日志与校验清单；兼容算法 MHL 和可打印报告。</p><h2>下载和更新</h2><p><a href="https://github.com/xingyunshijie/carddock/releases/tag/v1.0.0-nas.3">构建3发布页</a> · <a href="UPDATE.md">升级说明</a> · <a href="VALIDATION.md">测试范围</a></p><p>程序镜像 <code>ghcr.io/xingyunshijie/carddock:1.0.0-nas.3</code>，支持 linux/amd64 和 linux/arm64。安装只需配置文件；完整 ZIP 用于源码备份和离线构建，无需上传到 NAS。</p><p>源码及随包依赖许可证见 <a href="LICENSE">LICENSE</a> 和 <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>。</p></main></html>

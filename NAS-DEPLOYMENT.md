@@ -1,3 +1,5 @@
-# NAS 安装入口
+# 影像归仓 NAS 安装
 
-请阅读 [NAS安装说明.html](NAS安装说明.html)，按参考教程的结构创建 Docker 项目。整段配置已经写好，认证密码由安装人员在 AUTHENTICATION_PASSWORD 中设置。主盘和备份进入程序后选择。旧实例见 [UPDATE.md](UPDATE.md)。
+当前推荐使用完整镜像部署，直接按 [NAS安装说明.md](NAS安装说明.md) 创建 Docker 项目。无需上传程序目录或运行配置生成器。
+
+自建镜像可执行 `docker build -t carddock:local .`，将安装配置的 image 改为该镜像，其余映射保持一致。旧版命令行部署工具仅供旧安装维护使用。

@@ -4,6 +4,6 @@ set -eu
 cd "$(dirname "$0")/.."
 mkdir -p dist
 for arch in amd64 arm64; do
-  docker buildx build --platform "linux/$arch" --tag "carddock:1.0.0-nas.2-$arch" \
-    --output "type=docker,dest=dist/carddock-1.0.0-nas.2-$arch.tar" .
+  docker buildx build --platform "linux/$arch" --tag "carddock:1.0.0-nas.3-$arch" \
+    --output "type=docker,dest=dist/carddock-1.0.0-nas.3-$arch.tar" .
 done

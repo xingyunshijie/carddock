@@ -1,110 +1,27 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS：创建 Docker 项目，开始素材归档</title><style>body{font:16px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#263e30;background:#f2f5f2;margin:0}main{max-width:900px;margin:30px auto;background:#fff;padding:40px;border:1px solid #dce5dd;border-radius:16px}h1{font-size:30px;line-height:1.4}h2{font-size:23px;margin-top:38px;border-top:1px solid #e0e8e1;padding-top:25px}h3{font-size:18px;margin-top:28px}a{color:#26633f}p,li{overflow-wrap:anywhere}code{background:#eff4ef;padding:2px 5px;border-radius:4px;font:13px/1.7 ui-monospace,SFMono-Regular,monospace}pre{background:#183a28;color:#e0efe3;padding:20px;border-radius:10px;overflow:auto}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%;font-size:14px}td{padding:10px;border:1px solid #dce5dc}tr:first-child{font-weight:bold;background:#eff5ef}.table{overflow:auto}img{max-width:100%;height:auto;border:1px solid #dae5dc;border-radius:10px}nav{font-size:14px;color:#536e5b}footer{margin-top:40px;color:#6d8073;font-size:12px}@media(max-width:650px){main{margin:0;padding:22px 18px;border:0;border-radius:0}h1{font-size:25px}}@media print{body{background:white}main{border:0;margin:0;padding:0}nav{display:none}h2{break-after:avoid}tr{break-inside:avoid}}</style><main><nav><a href="README.html">安装包首页</a> · <a href="compose.project.yaml">完整配置</a> · <a href="NAS安装说明.html">安装说明</a> · <a href="UPDATE.html">旧版升级</a> · <a href="功能同步说明.html">功能同步</a></nav><h1>影像归仓 NAS：创建 Docker 项目，开始素材归档</h1><p>V1.0 · 构建2 · 云景数码影画 出品</p><p>影像归仓用于把存储卡中的照片、RAW、视频与声音拷贝到 NAS，保留目录规则和校验记录。大疆全景、延时摄影、视频代理分别归档；主盘与备份进入程序后再选择。</p><p><strong>温馨提示</strong></p><p>本版使用 Docker 官方 Python 镜像运行安装包中的程序。请先把完整 <code>carddock-nas-1.0-b2</code> 文件夹上传、解压到 <code>/volume1/docker/carddock-nas-1.0-b2</code>，其中须直接包含 <code>app</code>、<code>runtime</code>、<code>wheelhouse</code>、<code>state</code>。程序和依赖已随包提供，首次部署需联网拉取官方运行镜像。</p><p>下面的共享目录、读卡器路径和 <code>1000:10</code> 用户身份参考既有绿联配置。安装人员按当前 NAS 实际路径和账户权限核对；路径严格区分大小写。示例同时开放两个共享文件夹，主盘和备份角色在软件中设置。</p><h2>01 容器部署</h2><p>DEPLOY · 一段配置拉起容器</p><h3>STEP 01 创建 Docker 项目</h3><p>打开 NAS 的 <strong>Docker</strong> 应用，进入 <strong>项目</strong> 页面，点击 <strong>创建</strong>。项目名称填写 <code>carddock</code>，然后把下面这段配置完整粘贴进去：</p><pre><code># 影像归仓 NAS V1.0 构建2
-# 修改路径与 AUTHENTICATION_PASSWORD 后完整粘贴到 Docker 项目。
-services:
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS · 构建3</title><style>body{margin:0;background:#f6f7f6;color:#202a25;font:17px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:880px;margin:30px auto;background:#fff;padding:38px;border-radius:16px}h1{font-size:29px}h2{margin-top:42px;color:#08765b}h3{margin-top:28px}a{color:#08765b}pre{padding:22px;background:#172332;color:#edf4f1;overflow:auto;border-radius:12px;font-size:14px;line-height:1.65}code{font-family:ui-monospace,monospace}p code{background:#eef2ef;padding:2px 5px}li{margin:8px 0}@media(max-width:650px){main{margin:0;padding:24px 18px}h1{font-size:25px}}</style><main><h1>影像归仓 NAS：创建 Docker 项目，开始素材归档</h1><p>V1.0 · 构建3 · 云景数码影画 出品</p><p>全景序列、照片、RAW、视频与声音分别归档；拷贝后校验。主盘和备份进入软件后再设置。</p><h2>01 容器部署</h2><p>DEPLOY · 一段配置拉起容器</p><h3>STEP 01 创建 Docker 项目</h3><p>打开 NAS 的 <strong>Docker → 项目 → 创建</strong>，项目名称填写 <code>carddock</code>，把下面的配置完整粘贴进去。</p><p>不需要下载或上传程序文件夹，不需要配置生成器，也不需要安装 carddock-admin 认证服务。</p><pre><code>services:
   carddock:
-    image: &quot;python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337&quot;
-    restart: &quot;unless-stopped&quot;
-    user: &quot;1000:10&quot;
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.3
+    container_name: carddock
+    restart: unless-stopped
     ports:
       - &quot;18080:8080&quot;
     environment:
-      TZ: &quot;Asia/Shanghai&quot;
+      TZ: Asia/Shanghai
       AUTHENTICATION_ENABLED: &quot;true&quot;
       AUTHENTICATION_PASSWORD: &quot;改成你自己的密码&quot;
-      SOURCE_ROOTS: &quot;/sources&quot;
-      MANUAL_SOURCE_ROOTS: &quot;/manual/area1:/manual/area2&quot;
-      TARGET_ROOTS: &quot;/storage/area1:/storage/area2&quot;
-      TARGET_LABELS: &quot;{\&quot;/storage/area1\&quot;: \&quot;存储区1 · Media\&quot;, \&quot;/storage/area2\&quot;: \&quot;存储区2 · Archive\&quot;}&quot;
-      STATE_DIR: &quot;/state&quot;
-      HOST_MOUNTINFO: &quot;/host/mountinfo&quot;
-      PYTHONUNBUFFERED: &quot;1&quot;
-      PYTHONDONTWRITEBYTECODE: &quot;1&quot;
-      PYTHONPATH: &quot;/opt/carddock-deps:/opt/carddock/app&quot;
-    command:
-      - &quot;/bin/sh&quot;
-      - &quot;/opt/carddock/runtime/start.sh&quot;
     volumes:
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume1/docker/carddock-nas-1.0-b2&quot;
-        target: &quot;/opt/carddock&quot;
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume1/docker/carddock-nas-1.0-b2/state&quot;
-        target: &quot;/state&quot;
-        read_only: false
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/mnt/@usb&quot;
-        target: &quot;/sources&quot;
-        read_only: true
-        bind:
-          create_host_path: false
-          propagation: &quot;rslave&quot;
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume2/Media&quot;
-        target: &quot;/storage/area1&quot;
-        read_only: false
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume2/Media&quot;
-        target: &quot;/manual/area1&quot;
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume3/Archive&quot;
-        target: &quot;/storage/area2&quot;
-        read_only: false
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/volume3/Archive&quot;
-        target: &quot;/manual/area2&quot;
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/proc/1/mountinfo&quot;
-        target: &quot;/host/mountinfo&quot;
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: &quot;bind&quot;
-        source: &quot;/sys&quot;
-        target: &quot;/sys&quot;
-        read_only: true
-        bind:
-          create_host_path: false
+      - carddock-data:/state
+      - /mnt/@usb:/sources:ro,rslave
+      - /volume2/NASgutai:/storage/area1
+      - /volume3/NAS02:/storage/area2
+      - /volume2/NASgutai:/manual/area1:ro
+      - /volume3/NAS02:/manual/area2:ro
+      - /proc/1/mountinfo:/host/mountinfo:ro
+      - /sys:/sys:ro
     read_only: true
     tmpfs:
-      - &quot;/tmp:size=128m,mode=1777&quot;
-      - &quot;/opt/carddock-deps:rw,exec,nosuid,nodev,size=32m,mode=1777&quot;
-    cap_drop:
-      - &quot;ALL&quot;
-    security_opt:
-      - &quot;no-new-privileges:true&quot;
-    healthcheck:
-      test:
-        - &quot;CMD&quot;
-        - &quot;python&quot;
-        - &quot;-c&quot;
-        - &quot;import urllib.request; urllib.request.urlopen(&#x27;http://127.0.0.1:8080/&#x27;,timeout=3)&quot;
-      interval: &quot;30s&quot;
-      timeout: &quot;5s&quot;
-      start_period: &quot;90s&quot;
-      retries: 3
-    container_name: &quot;carddock&quot;
-    working_dir: &quot;/opt/carddock/app&quot;</code></pre><h3>端口</h3><p>容器内部固定 <code>8080</code>，左边主机端口默认使用 <code>18080</code>。如果被占用，把左边改成其他空闲端口，例如 <code>18081:8080</code>，后面访问时使用改后的端口。</p><p>只改左侧主机端口，保留容器内部的 <code>8080</code>。配置中的健康检查也继续使用内部端口。</p><h3>认证（务必设置）</h3><p>本配置已将 <code>AUTHENTICATION_ENABLED</code> 设置为 <code>true</code>，保持认证开启，并把 <code>AUTHENTICATION_PASSWORD</code> 的占位内容 <strong>改成自己的登录密码</strong>。不能保留“改成你自己的密码”，也不使用 <code>admin</code> 等默认弱密码。</p><p>登录密码为12–256个字符，可使用中文、字母、数字和符号。填写包含 <code>$</code> 的密码时，在 Compose 中将每个 <code>$</code> 写成 <code>$$</code>；登录时输入原来的单个 <code>$</code>。修改 YAML 字符串时保留正确的引号。</p><p>打开软件后，输入这里设置的密码即可登录，单用户模式无需用户名。忘记或要更换密码时，修改原 Docker 项目的 <code>AUTHENTICATION_PASSWORD</code>，重新部署容器后用新密码登录；任务、设置和素材仍保留，已有登录会失效。更新前先关闭自动导入并等任务结束。</p><p><strong>进阶提示</strong>：局域网可使用本文的 HTTP 地址；需要跨网络访问时，使用 NAS 支持的 HTTPS 反向代理或 VPN。</p><p>确认配置、路径、端口和密码无误后，点击部署。启动时会从安装包加载校验依赖，并检查源目录只读、状态和目标目录权限；等待容器运行并通过健康检查即可。</p><h2>02 使用指南</h2><p>USER GUIDE · 选择来源 · 设置主盘和备份 · 拷贝与校验</p><h3>首次访问</h3><p>容器运行后，点击 NAS 提供的快速访问入口，或者在浏览器地址栏输入：</p><pre><code>http://NAS_IP:18080</code></pre><p>把 <code>NAS_IP</code> 换成 NAS 的实际局域网地址，可在 NAS 的网络设置中查看。若前面将端口改成 <code>18081</code>，这里就访问 <code>http://NAS_IP:18081</code>。</p><p>首次打开会出现登录框，输入配置中设置的 <code>AUTHENTICATION_PASSWORD</code> 即可进入主界面。单用户模式，没有用户名。密码只用于影像归仓，不是 NAS 管理员密码。</p><h3>日常拷贝</h3><ul><li>在左侧选择存储卡，或手动添加已映射范围内的源目录。</li><li>在右侧选择主盘归档目录。需要新目录时，可直接在选择器中新建文件夹。</li><li>备份目录留空就是只拷贝主盘；需要备份时再添加目录，支持多份备份。</li><li>选择校验方式和归档规则，保存设置，核对文件预览后开始拷贝。</li></ul><p>程序中的 <code>/storage/area1</code> 对应配置里的 <code>/volume2/Media</code>，<code>/storage/area2</code> 对应 <code>/volume3/Archive</code>；存储区选择器会显示共享目录名称和容量。主盘、备份都在程序里决定，不需要安装不同版本。</p><p>新安装默认手动运行。确认测试素材拷贝正常后，可开启自动导入；自动导入由 NAS 后台处理，不要求浏览器保持打开。</p><h3>全景、延时与普通照片</h3><p>大疆 <code>PANORAMA</code> 进入“全景序列”，保留 <code>001_0061</code> 等拍摄组和原文件名，DNG 与 JPG 放在同一组内，不再拆分。</p><p>明确的延时摄影目录保留组号，再按 RAW/JPG 分开；普通 RAW/JPG 分存。LRF/LRV 等代理平铺到“视频代理”，也可选择不拷贝；索尼专用视频缩略图自动忽略。</p><h3>看懂拷贝与校验进度</h3><p>拷贝阶段每写完一个文件就增加拷贝数量，校验阶段单独统计校验数量。默认推荐 SHA-256，也可使用 XXHash64、BLAKE3、MD5；快速模式只检查大小，不表示内容校验通过。</p><p>主盘接力模式先完成主盘校验，再按本次清单生成备份。全部目标完成后再核对报告，在 NAS 系统中安全弹出设备；部分范围、快速模式、失败或取消不会被当作整卡内容校验成功。</p><h3>队列、重试与报告</h3><p>多张卡可加入队列，每项任务保存自己的目录和规则，按顺序执行。支持暂停、继续、终止和按原规则重试；重试先复核已有文件，再补拷缺失项。</p><p>可导出 JSON、TXT、传输日志与校验清单。兼容算法可生成基础 MHL 1.1；“打印 / PDF”导出的报告可通过浏览器存储为 PDF。配置、历史、预设与报告保存在 <code>state</code> 中，删除队列记录不会删除素材。</p><h3>更换存储位置</h3><p>如果目标已经在开放的共享文件夹内，直接在程序中选择新目录并保存。新增未映射的硬盘或共享文件夹时，编辑原 Docker 项目补充映射，并加入 <code>TARGET_ROOTS</code>；保留已有映射与状态目录。不同文件夹不一定是独立磁盘，备份位置由安装人员确认。</p><h2>写在最后</h2><p>影像归仓负责拷贝、归档和校验，不格式化源卡，也不直接挂载或卸载 NAS 的块设备。首次建议用可重复的小份素材确认路径、权限、分类与备份结果，再用于正式工作流。</p><p>本包经过自动测试、网页操作和 Compose 配置校验；当前开发机没有 Docker Engine，Linux 容器启动、NAS 权限和 USB 热插拔仍需实机验收。已有实例升级前阅读 <a href="UPDATE.html">UPDATE.md</a>，避免新旧容器同时使用一个状态目录。</p><p>说明结构参照你提供的 <a href="https://mp.weixin.qq.com/s/e6ri-olmQ0JOZRsIuUDMhQ">绿联 NAS Docker 项目部署教程</a>，配置按影像归仓的真实运行方式编写。</p><footer>影像归仓 NAS V1.0 · 构建2 · 2026-10-31 · 云景数码影画 出品</footer></main><script>document.querySelectorAll('pre').forEach(pre=>{const b=document.createElement('button');b.textContent='复制';b.style.cssText='float:right;margin:0 0 8px 12px;padding:6px 14px;border:1px solid #8da9b0;border-radius:6px;cursor:pointer';pre.before(b);b.onclick=async()=>{const code=pre.querySelector('code');try{await navigator.clipboard.writeText(code.textContent);b.textContent='已复制'}catch(e){const r=document.createRange();r.selectNodeContents(code);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='已选中，请按 Ctrl+C / ⌘C'}}});</script></html>
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [&quot;no-new-privileges:true&quot;]
+volumes:
+  carddock-data:</code></pre><h3>端口</h3><p>容器内部固定 <code>8080</code>，左侧主机端口默认 <code>18080</code>。被占用时改为 <code>18081:8080</code>，访问时也使用新端口。</p><h3>认证（务必设置）</h3><p>保持 <code>AUTHENTICATION_ENABLED</code> 为 <code>true</code>，将 <code>AUTHENTICATION_PASSWORD</code> 改成自己的12–256位登录密码。不是 NAS 管理员密码，也不需要生成密钥。密码含 <code>$</code> 时，每个 <code>$</code> 在配置中写成 <code>$$</code>，登录时输入原密码。</p><h3>存储目录</h3><p>上面的路径已按你的 NAS 核对：<code>/volume2/NASgutai</code> 和 <code>/volume3/NAS02</code>。换到其他 NAS 时，只修改冒号左边的真实共享目录；相同目录在配置中出现两次，要一起修改。右侧 <code>/storage/area1</code>、<code>/storage/area2</code>、<code>/manual/area1</code>、<code>/manual/area2</code> 保持不变。</p><p><code>/mnt/@usb</code> 是这台绿联 NAS 的 USB 挂载父目录，存储卡以只读方式接入。两条 <code>/manual/…</code> 映射用于手动添加 NAS 中的素材来源，也是只读。<code>/proc/1/mountinfo</code> 和 <code>/sys</code> 用于识别外接设备。</p><p>配置和历史自动保存在 Docker 数据卷 <code>carddock_carddock-data</code>，无需手动创建 state 文件夹。镜像默认使用 <code>1000:10</code>，该账户需对目标共享文件夹有写入权限。其他 NAS 的账户不同，可在 <code>restart</code> 下补充 <code>user: &quot;实际UID:实际GID&quot;</code>，并为数据卷设置相同的写入权限。</p><p>核对密码和目录后，点击 <strong>立即部署</strong>。NAS 自动下载程序镜像，支持 Intel/AMD 和 ARM64，无需选择处理器版本。下载或启动失败时查看 Docker 日志；不能把“创建成功”当作“已经正常运行”。</p><h2>02 使用指南</h2><p>USER GUIDE · 设置一次，日常直接使用</p><h3>首次访问</h3><p>容器运行后，在浏览器打开 <code>http://NAS_IP:18080</code>。你的 NAS 地址为 <code>http://192.168.1.168:18080</code>。</p><p>输入刚才设置的登录密码。进入软件后选择来源、主盘目录和归档规则。</p><h3>主盘与备份</h3><p>在目录选择器中，<code>/storage/area1</code> 对应 NASgutai，<code>/storage/area2</code> 对应 NAS02。</p><p>备份目录留空就是主盘版；添加备份目录就是主盘加备份版。支持多份备份，随时在程序内修改，无需重装。备份应放在独立磁盘或存储设备上。</p><h3>日常使用</h3><p>1. 插入存储卡，选择来源；也可手动添加 <code>/manual/area1</code> 或 <code>/manual/area2</code> 中的源目录。</p><p>2. 选择主盘，按需要添加备份，保存设置。</p><p>3. 核对预览，开始拷贝。拷贝数量随写入增加，校验数量单独显示。</p><p>4. 检查结果和报告，再通过 NAS 安全弹出存储卡。</p><p>大疆 <code>PANORAMA</code> 归入“全景序列”，保留拍摄组与组内 DNG/JPG，不再拆分。延时序列、普通 RAW/JPG、视频代理继续按原规则处理。支持 SHA-256、XXHash64、BLAKE3、MD5、暂停继续、队列、重试和报告。</p><h3>更新</h3><p>等待传输结束并关闭自动导入，修改镜像版本后重新部署原项目。保留项目名、目录映射和数据卷，不要勾选删除数据卷。详细迁移与回退说明见 <a href="UPDATE.md">UPDATE.md</a>。</p><h2>写在最后</h2><p>首次用少量素材检查路径、分类与备份结果，再开始正式归档。程序不会格式化存储卡。</p><p>首次安装和更新需要 NAS 能访问 <code>ghcr.io</code> 下载镜像。局域网外访问建议使用 NAS 的 HTTPS 反向代理或 VPN。</p></main></html>
