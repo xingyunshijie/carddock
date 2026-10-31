@@ -49,3 +49,7 @@ services:
 镜像 `ghcr.io/xingyunshijie/carddock:1.0.0-nas.4`，支持 linux/amd64 与 linux/arm64。安装只需配置文件，无需上传源码 ZIP、运行生成器或安装 carddock-admin。各品牌 NAS 的权限和热插拔需实机验收。
 
 [LICENSE](LICENSE) · [依赖许可证](THIRD-PARTY-NOTICES.md)
+
+## 国内镜像分发
+
+国内仓库自动同步工具已准备，尚待仓库开通与授权。当前安装配置仍使用 GHCR；没有把示例国内地址当成可用地址。维护者见 [国内镜像仓库接入.md](国内镜像仓库接入.md)。

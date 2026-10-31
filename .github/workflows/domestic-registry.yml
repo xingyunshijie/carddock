@@ -1,0 +1,45 @@
+name: Sync domestic registry
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [NAS tests and container checks]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: domestic-registry
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.CN_IMAGE != '' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Install registry copy tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo
+      - name: Copy tested image and verify public access
+        env:
+          CN_IMAGE: ${{ vars.CN_IMAGE }}
+          CN_REGISTRY_USERNAME: ${{ secrets.CN_REGISTRY_USERNAME }}
+          CN_REGISTRY_PASSWORD: ${{ secrets.CN_REGISTRY_PASSWORD }}
+        run: python3 packaging/sync_registry.py
+      - name: Save verified domestic installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: carddock-domestic-installer
+          path: dist/domestic/
+          if-no-files-found: error
+          retention-days: 30
