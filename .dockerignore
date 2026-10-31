@@ -6,3 +6,6 @@ deployment
 dist
 .git
 .DS_Store
+data/
+archive/
+inbox/

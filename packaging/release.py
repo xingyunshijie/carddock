@@ -9,7 +9,7 @@ archive=dist/(folder+'-install.zip')
 selected=[]
 for p in root.rglob('*'):
  rel=p.relative_to(root)
- if any(x in ('.git','.github','dist','state','__pycache__') for x in rel.parts):continue
+ if any(x in ('.git','.github','dist','state','data','archive','inbox','__pycache__') for x in rel.parts):continue
  if p.is_symlink():raise SystemExit('Refuse symlink: '+str(rel))
  if p.is_file() and p.name not in ('.env','.DS_Store') and p.suffix not in ('.pyc','.pem','.key','.sqlite','.sqlite3'):selected.append(p)
 checks=[]
