@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
   except urllib.error.HTTPError as e:assert e.code==401
   token=request('login',{'password':'CI-Only-Password-2026'},False)['token']
   initial=request('state')['config']
-  assert initial['primary']==str(primary/'影像归仓') and initial['backups']==[] and not initial['auto'] and not initial['setup_complete']
+  assert initial['primary']=='/destinations/primary/影像归仓' and initial['backups']==[] and not initial['auto'] and not initial['setup_complete']
   assert (primary/'影像归仓').is_dir()
   print('PASS fresh default archive directory and primary-only mode',flush=True)
   request('config',{'primary':'/destinations/primary','backups':['/destinations/backup'],'media_only':False,'setup_complete':True})
