@@ -17,6 +17,13 @@ class PasswordUnit(unittest.TestCase):
         for password in ['', 'admin','short','改成你自己的密码','CHANGE_ME_Use_A_Password']:
             with self.assertRaises(ValueError):self.auth(password)
         with self.assertRaises(ValueError):PasswordAuthentication({'AUTHENTICATION_ENABLED':'maybe'})
+    def test_eight_character_minimum_and_upper_limit(self):
+        for password in ('Test8Pwd', '归仓登录测试密码', 'x'*256):
+            with self.subTest(length=len(password)):
+                self.assertIsNotNone(self.auth(password).login(password))
+        for password in ('x'*7, 'x'*257):
+            with self.subTest(length=len(password)):
+                with self.assertRaises(ValueError):self.auth(password)
     def test_expiry_and_restart(self):
         a=self.auth()
         with patch('authentication.time.monotonic',return_value=100):token=a.login('MyPrivatePassword_123')

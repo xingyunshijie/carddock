@@ -16,7 +16,7 @@
         "AUTHENTICATION_PASSWORD": "改成你自己的密码",
         "TZ": "Asia/Shanghai"
       },
-      "image": "ghcr.io/xingyunshijie/carddock:1.0.0-nas.4",
+      "image": "ghcr.io/xingyunshijie/carddock:1.0.0-nas.5",
       "networks": {
         "default": null
       },

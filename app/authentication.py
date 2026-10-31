@@ -10,8 +10,8 @@ class PasswordAuthentication:
         self.enabled=value!='false';self.lock=threading.RLock();self.sessions={};self.lifetime=12*60*60
         password=env.get('AUTHENTICATION_PASSWORD','')
         if self.configured and self.enabled:
-            if len(password)<12 or len(password)>256 or password.startswith('CHANGE_ME') or password in ('改成你自己的密码','请修改为你自己的登录密码'):
-                raise ValueError('请将 AUTHENTICATION_PASSWORD 改成自己的12–256位登录密码，不能使用示例占位值')
+            if len(password)<8 or len(password)>256 or password.startswith('CHANGE_ME') or password in ('改成你自己的密码','请修改为你自己的登录密码'):
+                raise ValueError('请将 AUTHENTICATION_PASSWORD 改成自己的8–256位登录密码，不能使用示例占位值')
         self.digest=hashlib.sha256(password.encode('utf-8')).digest()
     def login(self,password):
         if not self.configured:raise ValueError('此实例沿用旧版访问认证')

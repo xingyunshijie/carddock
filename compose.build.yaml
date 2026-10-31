@@ -1,7 +1,7 @@
 services:
   carddock:
     build: .
-    image: carddock:1.0.0-nas.4
+    image: carddock:1.0.0-nas.5
     container_name: carddock
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

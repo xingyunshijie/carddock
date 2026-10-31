@@ -1,6 +1,6 @@
 # CardDock · 影像归仓 NAS
 
-云景数码影画 出品 · V1.0 构建4
+云景数码影画 出品 · V1.0 构建5
 
 **创建 Docker 项目 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。**
 
@@ -13,7 +13,7 @@
 ```yaml
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.5
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -46,7 +46,7 @@ services:
 
 [最新发布](https://github.com/xingyunshijie/carddock/releases/latest) · [更新迁移](UPDATE.md) · [测试范围](VALIDATION.md)
 
-镜像 `ghcr.io/xingyunshijie/carddock:1.0.0-nas.4`，支持 linux/amd64 与 linux/arm64。安装只需配置文件，无需上传源码 ZIP、运行生成器或安装 carddock-admin。各品牌 NAS 的权限和热插拔需实机验收。
+镜像 `ghcr.io/xingyunshijie/carddock:1.0.0-nas.5`，支持 linux/amd64 与 linux/arm64。安装只需配置文件，无需上传源码 ZIP、运行生成器或安装 carddock-admin。各品牌 NAS 的权限和热插拔需实机验收。
 
 [LICENSE](LICENSE) · [依赖许可证](THIRD-PARTY-NOTICES.md)
 

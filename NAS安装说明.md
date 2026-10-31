@@ -1,6 +1,6 @@
 # 影像归仓 NAS：创建 Docker 项目，开始素材归档
 
-V1.0 · 构建4 · 云景数码影画 出品
+V1.0 · 构建5 · 云景数码影画 出品
 
 面向支持 Docker Compose 的 Linux NAS。程序与依赖均在镜像内，主盘与备份安装后在程序内设置。
 
@@ -15,7 +15,7 @@ DEPLOY · 一段配置拉起容器
 ```yaml
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.5
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -44,7 +44,7 @@ services:
 
 ### 认证（务必设置）
 
-保持 `AUTHENTICATION_ENABLED` 为 `true`，将 `AUTHENTICATION_PASSWORD` 改成自己的12–256位登录密码。不是 NAS 管理员密码，也不需要生成密钥。密码含 `$` 时，每个 `$` 在配置中写成 `$$`，登录时输入原密码。
+保持 `AUTHENTICATION_ENABLED` 为 `true`，将 `AUTHENTICATION_PASSWORD` 改成自己的8–256位登录密码。不是 NAS 管理员密码，也不需要生成密钥。密码含 `$` 时，每个 `$` 在配置中写成 `$$`，登录时输入原密码。
 
 ### 默认目录
 
