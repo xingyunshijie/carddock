@@ -8,8 +8,12 @@ from rules import component
 from core import safe_path
 from key_store import KeyStore, AttemptLimiter, verify_admin
 from authentication import PasswordAuthentication
+from shared_storage import shared_roots
 
-engine=Engine(os.getenv('STATE_DIR','/state'),os.getenv('SOURCE_ROOTS','/sources').split(':'),os.getenv('TARGET_ROOTS','/destinations').split(':'),[p for p in os.getenv('MANUAL_SOURCE_ROOTS','').split(':') if p])
+shares=shared_roots(os.getenv('NAS_SHARED_ROOT','/shares'))
+targets=list(dict.fromkeys(os.getenv('TARGET_ROOTS','/destinations').split(':')+[str(p) for p in shares]))
+manual=list(dict.fromkeys([p for p in os.getenv('MANUAL_SOURCE_ROOTS','').split(':') if p]+[str(p) for p in shares]))
+engine=Engine(os.getenv('STATE_DIR','/state'),os.getenv('SOURCE_ROOTS','/sources').split(':'),targets,manual)
 engine.initialize_primary(os.getenv('DEFAULT_PRIMARY_SUBDIR',''))
 password_auth=PasswordAuthentication()
 TOKEN=os.getenv('ACCESS_TOKEN','CardDock')
@@ -56,7 +60,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/api/state':
                 for job in list(engine.jobs.values()):
                     if job['status'] in ('running','paused','pausing','stopping'): engine.metrics(job)
-                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.5.0','source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
+                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.5.1','source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
             elif u.path=='/api/report':
                 ident=q.get('id',[''])[0]
                 with engine.lock:
@@ -73,7 +77,12 @@ class Handler(BaseHTTPRequestHandler):
                 roots=engine.sources if q.get('kind',['target'])[0]=='source' else engine.targets
                 path=q.get('path',[''])[0]
                 labels=json.loads(os.getenv('TARGET_LABELS','{}'))
-                self.send(200,browse_directories(path,roots,labels))
+                # Keep historical/default paths valid, but list real NAS shares first.
+                listing=browse_directories(path,roots,labels)
+                if not path and q.get('kind',['target'])[0]=='target' and shares:
+                    listing=browse_directories('',shares,labels)
+                listing['shared_folders']=bool(shares)
+                self.send(200,listing)
             else: self.send(404,{'error':'Not found'})
         except Exception as e: self.send(400,{'error':str(e)})
     def admin_reset(self):

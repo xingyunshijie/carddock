@@ -5,15 +5,15 @@ root=pathlib.Path(__file__).resolve().parents[1]
 image=os.environ.get('CARDDOCK_TEST_IMAGE','carddock:ci')
 def docker(*args):return subprocess.check_output(['docker',*args],text=True).strip()
 with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
- base=pathlib.Path(tmp);source=base/'source';primary=base/'primary';backup=base/'backup';state=base/'state'
- for p in [source,primary,backup,state]:p.mkdir()
+ base=pathlib.Path(tmp);source=base/'source';primary=base/'primary';backup=base/'backup';state=base/'state';share=base/'NAS共享测试'
+ for p in [source,primary,backup,state,share]:p.mkdir()
  samples=['DCIM/PANORAMA/001_0061/F.DNG','DCIM/PANORAMA/001_0061/F.JPG','DCIM/PANORAMA/001_0061/metadata.json','DCIM/photo.ARW','DCIM/photo.JPG','DCIM/photo.XMP','DCIM/film.LRF','HYPERLAPSE/001_0003/F.DNG']
  for name in samples:
   p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('synthetic '+name).encode())
  name='carddock-smoke-'+uuid.uuid4().hex[:10]
  args=['run','-d','--name',name,'--user',str(os.getuid())+':'+str(os.getgid()),'--read-only','--tmpfs','/tmp:size=128m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','-p','127.0.0.1::8080']
  for key,value in {'AUTHENTICATION_ENABLED':'true','AUTHENTICATION_PASSWORD':'Test8Pwd','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary:/destinations/backup','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo','PYTHONDONTWRITEBYTECODE':'1'}.items():args+=['-e',key+'='+value]
- for host,target,ro in [(source,'/sources',True),(primary,'/destinations/primary',False),(backup,'/destinations/backup',False),(state,'/state',False),(pathlib.Path('/proc/1/mountinfo'),'/host/mountinfo',True),(pathlib.Path('/sys'),'/sys',True)]:args+=['--mount','type=bind,source='+str(host)+',target='+target+(',readonly' if ro else '')]
+ for host,target,ro in [(source,'/sources',True),(primary,'/destinations/primary',False),(backup,'/destinations/backup',False),(state,'/state',False),(share,'/shares/测试共享',False),(pathlib.Path('/proc/1/mountinfo'),'/host/mountinfo',True),(pathlib.Path('/sys'),'/sys',True)]:args+=['--mount','type=bind,source='+str(host)+',target='+target+(',readonly' if ro else '')]
  args += [image]
  volume=name+'-state'
  docker('volume','create',volume)
@@ -43,6 +43,10 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
   try:request('state',authenticated=False);raise AssertionError('Unauthenticated request accepted')
   except urllib.error.HTTPError as e:assert e.code==401
   token=request('login',{'password':'Test8Pwd'},False)['token']
+  browse=request('browse?kind=target')
+  assert browse['directories']==['/shares/测试共享'] and browse['shared_folders']
+  assert browse['entries'][0]['name']=='测试共享'
+  print('PASS automatic shared-folder listing without hard-coded NAS names',flush=True)
   initial=request('state')['config']
   assert initial['primary']=='/destinations/primary/影像归仓' and initial['backups']==[] and not initial['auto'] and not initial['setup_complete']
   assert (primary/'影像归仓').is_dir()

@@ -23,19 +23,19 @@ function renderJobs(){
  }).join(''):'<div class="empty">还没有导入任务</div>';
  for(const j of state.jobs){const old=terminalStates.get(j.id);if(old&&old!==j.status&&!['queued','running','paused','pausing','stopping'].includes(j.status)&&$('completionSound').checked)playSound(j.status==='completed');terminalStates.set(j.id,j.status)}
 }
-async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS 1.5 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS 1.5.1 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
   const d=await api('browse?kind='+browseKind+'&path='+encodeURIComponent(path));if(sequence!==browseSequence)return;
-  browseCurrent=d.path;browseParent=d.parent;$('newFolderRow').hidden=browseKind!=='target';$('newFolder').disabled=browseKind!=='target'||!d.path||!d.writable;$('browsePath').value=d.path;$('browseUp').disabled=!d.path;
+  browseCurrent=d.path;browseParent=d.parent;$('browseHelp').textContent=browseKind==='source'?'请选择来源位置，再进入所需文件夹。':(d.shared_folders?'所有存储区列出此 NAS 已授权的共享文件夹。请选择主拷贝或备份要使用的文件夹。':'当前只有默认存储位置。安装时开放 NAS 共享目录后，这里会显示共享文件夹列表。');$('newFolderRow').hidden=browseKind!=='target';$('newFolder').disabled=browseKind!=='target'||!d.path||!d.writable;$('browsePath').value=d.path;$('browseUp').disabled=!d.path;$('browseRoot').disabled=!d.path;$('browseGo').disabled=!d.path;
   $('browseUse').disabled=!d.path||(browseKind==='target'&&!d.writable);
   if(d.path&&browseKind==='target'&&!d.writable)$('browseError').textContent='当前目录没有写入权限，请选择其他目录。';
   $('directories').innerHTML=d.entries.map((e,i)=>`<button data-i="${i}"><strong>▱ ${esc(e.name)}</strong><span class="path">${esc(e.path)}</span>${e.total!==undefined?`<span class="hint">可用 ${size(e.free)} / 总容量 ${size(e.total)}</span>`:''}${browseKind==='target'&&!e.writable?'<span class="hint">只读</span>':''}</button>`).join('')||'<p class="hint">'+(d.path?'没有子目录，可使用当前目录。':'暂无可访问的存储区。')+'</p>';
   $('directories').querySelectorAll('button').forEach(b=>b.onclick=()=>browse(d.entries[Number(b.dataset.i)].path));
- }catch(e){if(sequence!==browseSequence)return;$('directories').textContent='';$('browseError').textContent=e.message;}finally{if(sequence===browseSequence)$('browsePath').disabled=false}
+ }catch(e){if(sequence!==browseSequence)return;$('directories').textContent='';$('browseError').textContent=e.message.includes('超出允许')?'这个路径尚未开放给影像归仓。请选择下方已开放的位置；使用其他共享目录前需先在 NAS Docker 项目中开放访问。':e.message;$('browseRoot').disabled=false;}finally{if(sequence===browseSequence)$('browsePath').disabled=false}
 }
-async function openBrowser(kind,callback){browseKind=kind;browseCallback=callback;$('browserTitle').textContent=kind==='target'?'选择数据拷贝目标目录':'选择数据源文件夹';$('browser').showModal();await browse()}
+async function openBrowser(kind,callback,title=''){browseKind=kind;browseCallback=callback;$('browserTitle').textContent=kind==='target'?(title||'选择拷贝目录'):'选择数据源文件夹';$('browser').showModal();await browse()}
 function clearAuthError(){$('authError').textContent='';$('authToken').removeAttribute('aria-invalid')}
 $('login').onclick=()=>{clearAuthError();$('authDialog').showModal();$('authToken').focus()};
 $('authClose').onclick=()=>{$('authToken').value='';clearAuthError();$('authDialog').close()};
@@ -58,7 +58,7 @@ $('authSubmit').onclick=async()=>{
 $('authToken').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('authSubmit').click()}};
 $('refresh').onclick=guard(devices);$('save').onclick=guard(async()=>{await save();notice(state.config.auto?'已保存自动模式：插卡后自动导入，无需打开网页；当前已接入的摄影卡也会开始导入。':'已保存手动模式：识别卡片后，点击开始拷贝才会运行。')});$('auto').onclick=guard(async()=>{await save({auto:!state.config.auto});notice(state.config.auto?'自动导入已开启：现有和新接入的已识别卡片将依次导入':'自动导入已暂停，正在进行的任务会继续')});$('start').onclick=guard(async()=>{if(!selected)throw Error('请先选择数据源');await save();await api('jobs',{source:selected});await poll()});
 $('addSource').onclick=guard(()=>openBrowser('source',async path=>{await api('config',{manual_sources:[...new Set([...(state.config.manual_sources||[]),path])]});await poll();await select(path)}));
-$('choosePrimary').onclick=guard(()=>openBrowser('target',async p=>{$('primary').value=p}));$('chooseBackup').onclick=guard(()=>openBrowser('target',async p=>{$('backups').value=[$('backups').value.trim(),p].filter(Boolean).join('\n');updateCopyFlow()}));$('closeBrowser').onclick=()=>$('browser').close();$('browseRoot').onclick=()=>browse();$('browseUp').onclick=()=>browse(browseParent);$('browsePath').oninput=()=>{browseCurrent='';$('browseUse').disabled=true};$('browseGo').onclick=guard(()=>browse($('browsePath').value));$('browseUse').onclick=guard(async()=>{const p=browseCurrent;if(!p||p!==$('browsePath').value)throw Error('请先打开并确认目录');await browseCallback(p);$('browser').close()});
+$('choosePrimary').onclick=guard(()=>openBrowser('target',async p=>{$('primary').value=p},'选择主拷贝目录'));$('chooseBackup').onclick=guard(()=>openBrowser('target',async p=>{$('backups').value=[$('backups').value.trim(),p].filter(Boolean).join('\n');updateCopyFlow()},'选择备份拷贝目录'));$('closeBrowser').onclick=()=>$('browser').close();$('browseRoot').onclick=()=>browse();$('browseUp').onclick=()=>browse(browseParent);$('browsePath').oninput=()=>{browseCurrent='';$('browseUse').disabled=true;$('browseGo').disabled=!$('browsePath').value.trim()};$('browseGo').onclick=guard(()=>browse($('browsePath').value.trim()));$('browsePath').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!$('browseGo').disabled)$('browseGo').click()}};$('browseUse').onclick=guard(async()=>{const p=browseCurrent;if(!p||p!==$('browsePath').value)throw Error('请先打开并确认目录');await browseCallback(p);$('browser').close()});
 guard(async()=>{authInfo=await api('auth');if(authInfo.mode==='password'){$('login').textContent=authInfo.enabled?'登录':'认证未启用';document.querySelector('.admin-link').hidden=true}else{document.querySelector('.admin-link').hidden=false;$('login').textContent='访问密钥';$('authTitle').textContent='连接旧版实例';$('authHint').textContent='此实例未设置新的密码认证参数，沿用原访问密钥。';$('authLabel').textContent='访问密钥'}try{await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password'||!authInfo.enabled;showInitialSetup()}catch(e){if(e.status===401&&authInfo.mode==='password'){$('authDialog').showModal();$('authToken').focus()}else throw e}})();setInterval(()=>poll().catch(e=>{$('connection').textContent='● 未连接';notice(e.message,true)}),2500);setInterval(()=>devices().catch(()=>{}),12000);
 
 $('jobs').addEventListener('click',e=>{if(e.target.matches('.report'))guard(async()=>{const report=await api('report?id='+e.target.dataset.job);const u=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='carddock-'+report.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)})()});
@@ -88,7 +88,7 @@ $('theme').value=localStorage.getItem('carddock-theme')||'light';$('theme').onch
 function playSound(ok=true){try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=ok?660:220;g.gain.setValueAtTime(.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.5);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.5);o.onended=()=>ctx.close()}catch(e){notice('浏览器未允许播放提示音')}}
 $('soundTest').onclick=()=>playSound();$('completionSound').checked=localStorage.getItem('carddock-sound')==='1';$('completionSound').onchange=()=>{localStorage.setItem('carddock-sound',$('completionSound').checked?'1':'0');if($('completionSound').checked)playSound()};
 
-$('newFolder').onclick=guard(async()=>{if(!browseCurrent||browseKind!=='target')throw Error('请先选择可写存储区');const r=await api('mkdir',{parent:browseCurrent,name:$('newFolderName').value});$('newFolderName').value='';await browse(r.path)});
+$('newFolder').onclick=async()=>{try{if(!browseCurrent||browseKind!=='target')throw Error('请先点击下方的可写位置');const r=await api('mkdir',{parent:browseCurrent,name:$('newFolderName').value});$('newFolderName').value='';await browse(r.path)}catch(e){$('browseError').textContent=e.message}};
 
 $('backup_from_primary').onchange=updateCopyFlow;
 
@@ -101,8 +101,8 @@ function showInitialSetup(){
  $('setupError').textContent='';$('initialSetup').showModal();$('setupChoosePrimary').focus();
 }
 $('initialSetup').oncancel=e=>e.preventDefault();
-$('setupChoosePrimary').onclick=guard(()=>openBrowser('target',p=>{$('setupPrimary').value=p;$('setupError').textContent=''}));
-$('setupChooseBackup').onclick=guard(()=>openBrowser('target',p=>{$('setupBackups').value=[...new Set([...$('setupBackups').value.split('\n').filter(Boolean),p])].join('\n');$('setupError').textContent=''}));
+$('setupChoosePrimary').onclick=guard(()=>openBrowser('target',p=>{$('setupPrimary').value=p;$('setupError').textContent=''},'选择主拷贝目录'));
+$('setupChooseBackup').onclick=guard(()=>openBrowser('target',p=>{$('setupBackups').value=[...new Set([...$('setupBackups').value.split('\n').filter(Boolean),p])].join('\n');$('setupError').textContent=''},'选择备份拷贝目录'));
 $('setupClearBackup').onclick=()=>{$('setupBackups').value=''};
 $('setupSave').onclick=async()=>{
  const button=$('setupSave');if(button.disabled)return;
