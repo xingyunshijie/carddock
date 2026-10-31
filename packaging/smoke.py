@@ -18,8 +18,8 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
  volume=name+'-state'
  docker('volume','create',volume)
  try:
-  assert docker('run','--rm','--mount','type=volume,source='+volume+',target=/state','--entrypoint','python',image,'-c',"import os;from pathlib import Path;assert os.getuid()==1000;Path('/state/write-test').write_text('ok');print('state-ok')")=='state-ok'
-  print('PASS default non-root user and fresh named state volume',flush=True)
+  assert docker('run','--rm','--mount','type=volume,source='+volume+',target=/state','-e','TARGET_ROOTS=/state',image,'python','-c',"import os;from pathlib import Path;assert os.getuid()==1000;Path('/state/write-test').write_text('ok');print('state-ok')")=='state-ok'
+  print('PASS non-root service and fresh persistent state volume',flush=True)
  finally:docker('volume','rm',volume)
  token=''
  try:
@@ -43,7 +43,11 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
   try:request('state',authenticated=False);raise AssertionError('Unauthenticated request accepted')
   except urllib.error.HTTPError as e:assert e.code==401
   token=request('login',{'password':'CI-Only-Password-2026'},False)['token']
-  request('config',{'primary':'/destinations/primary','backups':['/destinations/backup'],'media_only':False})
+  initial=request('state')['config']
+  assert initial['primary']==str(primary/'影像归仓') and initial['backups']==[] and not initial['auto'] and not initial['setup_complete']
+  assert (primary/'影像归仓').is_dir()
+  print('PASS fresh default archive directory and primary-only mode',flush=True)
+  request('config',{'primary':'/destinations/primary','backups':['/destinations/backup'],'media_only':False,'setup_complete':True})
   for algorithm in ['sha256','xxh64','blake3','md5']:
    request('config',{'verify':algorithm});job=request('jobs',{'source':'/sources'})
    for _ in range(120):
@@ -66,6 +70,7 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
    except (OSError,ValueError):time.sleep(1)
   else:raise RuntimeError('Container restart timeout')
   assert request('state')['config']['backups']==['/destinations/backup']
+  assert request('state')['config']['setup_complete']
   print('PASS persistent configuration after restart',flush=True)
   request('logout',{})
   try:request('state');raise AssertionError('Logged-out session accepted')

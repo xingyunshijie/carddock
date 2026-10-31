@@ -23,7 +23,7 @@ function renderJobs(){
  }).join(''):'<div class="empty">还没有导入任务</div>';
  for(const j of state.jobs){const old=terminalStates.get(j.id);if(old&&old!==j.status&&!['queued','running','paused','pausing','stopping'].includes(j.status)&&$('completionSound').checked)playSound(j.status==='completed');terminalStates.set(j.id,j.status)}
 }
-async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS V1.0 构建2 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS V1.0 构建4 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
@@ -48,7 +48,7 @@ $('authSubmit').onclick=async()=>{
  try{
   if(authInfo.mode==='password'){const result=await api('login',{password:candidate},'');candidate=result.token}else{await api('state',undefined,candidate)}
   sessionStorage.setItem('token',candidate);
-  await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password';$('authToken').value='';$('authDialog').close();$('notice').style.display='none';
+  await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password';$('authToken').value='';$('authDialog').close();$('notice').style.display='none';showInitialSetup();
  }catch(error){
   $('authError').textContent=error.status===401?'密码错误':'连接失败，请检查 NAS 服务或网络后重试。';
   $('authToken').setAttribute('aria-invalid','true');$('authToken').focus();$('authToken').select();
@@ -58,7 +58,7 @@ $('authToken').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('authSubmi
 $('refresh').onclick=guard(devices);$('save').onclick=guard(async()=>{await save();notice(state.config.auto?'已保存自动模式：插卡后自动导入，无需打开网页；当前已接入的摄影卡也会开始导入。':'已保存手动模式：识别卡片后，点击开始拷贝才会运行。')});$('auto').onclick=guard(async()=>{await save({auto:!state.config.auto});notice(state.config.auto?'自动导入已开启：现有和新接入的已识别卡片将依次导入':'自动导入已暂停，正在进行的任务会继续')});$('start').onclick=guard(async()=>{if(!selected)throw Error('请先选择数据源');await save();await api('jobs',{source:selected});await poll()});
 $('addSource').onclick=guard(()=>openBrowser('source',async path=>{await api('config',{manual_sources:[...new Set([...(state.config.manual_sources||[]),path])]});await poll();await select(path)}));
 $('choosePrimary').onclick=guard(()=>openBrowser('target',async p=>{$('primary').value=p}));$('chooseBackup').onclick=guard(()=>openBrowser('target',async p=>{$('backups').value=[$('backups').value.trim(),p].filter(Boolean).join('\n');updateCopyFlow()}));$('closeBrowser').onclick=()=>$('browser').close();$('browseRoot').onclick=()=>browse();$('browseUp').onclick=()=>browse(browseParent);$('browsePath').oninput=()=>{browseCurrent='';$('browseUse').disabled=true};$('browseGo').onclick=guard(()=>browse($('browsePath').value));$('browseUse').onclick=guard(async()=>{const p=browseCurrent;if(!p||p!==$('browsePath').value)throw Error('请先打开并确认目录');await browseCallback(p);$('browser').close()});
-guard(async()=>{authInfo=await api('auth');if(authInfo.mode==='password'){$('login').textContent=authInfo.enabled?'登录':'认证未启用';document.querySelector('.admin-link').hidden=true}else{document.querySelector('.admin-link').hidden=false;$('login').textContent='访问密钥';$('authTitle').textContent='连接旧版实例';$('authHint').textContent='此实例未设置新的密码认证参数，沿用原访问密钥。';$('authLabel').textContent='访问密钥'}try{await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password'||!authInfo.enabled}catch(e){if(e.status===401&&authInfo.mode==='password'){$('authDialog').showModal();$('authToken').focus()}else throw e}})();setInterval(()=>poll().catch(e=>{$('connection').textContent='● 未连接';notice(e.message,true)}),2500);setInterval(()=>devices().catch(()=>{}),12000);
+guard(async()=>{authInfo=await api('auth');if(authInfo.mode==='password'){$('login').textContent=authInfo.enabled?'登录':'认证未启用';document.querySelector('.admin-link').hidden=true}else{document.querySelector('.admin-link').hidden=false;$('login').textContent='访问密钥';$('authTitle').textContent='连接旧版实例';$('authHint').textContent='此实例未设置新的密码认证参数，沿用原访问密钥。';$('authLabel').textContent='访问密钥'}try{await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password'||!authInfo.enabled;showInitialSetup()}catch(e){if(e.status===401&&authInfo.mode==='password'){$('authDialog').showModal();$('authToken').focus()}else throw e}})();setInterval(()=>poll().catch(e=>{$('connection').textContent='● 未连接';notice(e.message,true)}),2500);setInterval(()=>devices().catch(()=>{}),12000);
 
 $('jobs').addEventListener('click',e=>{if(e.target.matches('.report'))guard(async()=>{const report=await api('report?id='+e.target.dataset.job);const u=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='carddock-'+report.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)})()});
 
@@ -92,3 +92,27 @@ $('newFolder').onclick=guard(async()=>{if(!browseCurrent||browseKind!=='target')
 $('backup_from_primary').onchange=updateCopyFlow;
 
 $('logout').onclick=guard(async()=>{await api('logout',{});sessionStorage.removeItem('token');$('logout').hidden=true;$('authDialog').showModal();$('authToken').focus()});
+
+function showInitialSetup(){
+ if(state.config?.setup_complete!==false||$('initialSetup').open)return;
+ $('setupPrimary').value=state.config.primary||'';
+ $('setupBackups').value=(state.config.backups||[]).join('\n');
+ $('setupError').textContent='';$('initialSetup').showModal();$('setupChoosePrimary').focus();
+}
+$('initialSetup').oncancel=e=>e.preventDefault();
+$('setupChoosePrimary').onclick=guard(()=>openBrowser('target',p=>{$('setupPrimary').value=p;$('setupError').textContent=''}));
+$('setupChooseBackup').onclick=guard(()=>openBrowser('target',p=>{$('setupBackups').value=[...new Set([...$('setupBackups').value.split('\n').filter(Boolean),p])].join('\n');$('setupError').textContent=''}));
+$('setupClearBackup').onclick=()=>{$('setupBackups').value=''};
+$('setupSave').onclick=async()=>{
+ const button=$('setupSave');if(button.disabled)return;
+ const primary=$('setupPrimary').value.trim(),backups=$('setupBackups').value.split('\n').filter(Boolean);
+ $('setupError').textContent='';
+ if(!primary){$('setupError').textContent='请先选择拷贝主目录。';$('setupChoosePrimary').focus();return}
+ if(backups.includes(primary)){$('setupError').textContent='备份目录不能与主目录相同，请重新选择。';return}
+ button.disabled=true;button.textContent='正在保存…';
+ try{
+  state.config=await api('config',{primary,backups,auto:false,setup_complete:true});
+  fillSettings(state.config);updateAuto();$('initialSetup').close();notice('目录已保存，可以选择来源开始拷贝。');
+ }catch(e){$('setupError').textContent=e.message}
+ finally{button.disabled=false;button.textContent='保存并进入'}
+};

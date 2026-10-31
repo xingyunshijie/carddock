@@ -9,9 +9,6 @@
     "carddock": {
       "restart": "unless-stopped",
       "container_name": "carddock",
-      "cap_drop": [
-        "ALL"
-      ],
       "command": null,
       "entrypoint": null,
       "environment": {
@@ -19,7 +16,7 @@
         "AUTHENTICATION_PASSWORD": "改成你自己的密码",
         "TZ": "Asia/Shanghai"
       },
-      "image": "ghcr.io/xingyunshijie/carddock:1.0.0-nas.3",
+      "image": "ghcr.io/xingyunshijie/carddock:1.0.0-nas.4",
       "networks": {
         "default": null
       },
@@ -32,43 +29,21 @@
       ],
       "volumes": [
         {
-          "type": "volume",
-          "source": "carddock-data",
+          "type": "bind",
+          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/data",
           "target": "/state",
-          "volume": {}
+          "bind": {}
         },
         {
           "type": "bind",
-          "source": "/mnt/@usb",
+          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/archive",
+          "target": "/storage",
+          "bind": {}
+        },
+        {
+          "type": "bind",
+          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/inbox",
           "target": "/sources",
-          "read_only": true,
-          "bind": {
-            "propagation": "rslave"
-          }
-        },
-        {
-          "type": "bind",
-          "source": "/volume2/NASgutai",
-          "target": "/storage/area1",
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "/volume3/NAS02",
-          "target": "/storage/area2",
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "/volume2/NASgutai",
-          "target": "/manual/area1",
-          "read_only": true,
-          "bind": {}
-        },
-        {
-          "type": "bind",
-          "source": "/volume3/NAS02",
-          "target": "/manual/area2",
           "read_only": true,
           "bind": {}
         },
@@ -95,11 +70,6 @@
           "protocol": "tcp"
         }
       ]
-    }
-  },
-  "volumes": {
-    "carddock-data": {
-      "name": "carddock-github-update-20261031_carddock-data"
     }
   }
 }

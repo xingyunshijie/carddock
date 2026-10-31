@@ -1,10 +1,10 @@
 # CardDock · 影像归仓 NAS
 
-云景数码影画 出品 · V1.0 构建3
+云景数码影画 出品 · V1.0 构建4
 
-**Docker → 项目 → 创建 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。**
+**创建 Docker 项目 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。**
 
-无需上传程序文件夹，无需配置生成器，无需安装后台认证服务。主盘与备份进入程序后选择。
+通用安装使用项目内默认文件夹，不包含个人 NAS 地址、共享目录名称或固定存储卷编号。安装后在程序里更换主盘、添加备份。
 
 ## 安装
 
@@ -13,7 +13,7 @@
 ```yaml
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.3
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -23,38 +23,29 @@ services:
       AUTHENTICATION_ENABLED: "true"
       AUTHENTICATION_PASSWORD: "改成你自己的密码"
     volumes:
-      - carddock-data:/state
-      - /mnt/@usb:/sources:ro,rslave
-      - /volume2/NASgutai:/storage/area1
-      - /volume3/NAS02:/storage/area2
-      - /volume2/NASgutai:/manual/area1:ro
-      - /volume3/NAS02:/manual/area2:ro
+      - ./data:/state
+      - ./archive:/storage
+      - ./inbox:/sources:ro
       - /proc/1/mountinfo:/host/mountinfo:ro
       - /sys:/sys:ro
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
-    cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-volumes:
-  carddock-data:
 ```
 
-上面两组共享目录按当前 NAS 填写。其他 NAS 修改冒号左侧路径，密码至少12位；详细端口和目录说明见安装说明。
+`inbox` 放待导入素材，`archive` 保存归档，`data` 保存设置与历史。新安装提供 `archive/影像归仓` 作为默认文件夹。首次登录先让用户设置拷贝主目录和可选的备份目录，点击“保存并进入”后使用；自动导入初始关闭。
 
-访问 `http://NAS_IP:18080`，输入自设密码。主盘、备份、归档规则在软件内设置。
+在程序的目标设置中更换主盘、添加备份或新建文件夹。独立硬盘、新共享目录和读卡器的接入方法见安装说明；Docker 必须先映射，软件才能访问。项目文件夹包含素材，更新时务必保留。
 
 ## 功能
 
-- 大疆全景序列保留拍摄组，组内 DNG/JPG 不拆分。
-- 延时、普通 RAW/JPG、视频代理分类；拷贝和校验分别计数。
-- SHA-256、XXHash64、BLAKE3、MD5；多份备份、主盘接力、暂停继续、队列和重试。
-- JSON/TXT、日志与校验清单；兼容算法 MHL 和可打印报告。
+全景序列、延时、RAW/JPG与代理分类；拷贝与校验分别计数。支持 SHA-256、XXHash64、BLAKE3、MD5、多份备份、队列、暂停继续、重试及报告。
 
-## 下载和更新
+## 下载和说明
 
-[构建3发布页](https://github.com/xingyunshijie/carddock/releases/tag/v1.0.0-nas.3) · [升级说明](UPDATE.md) · [测试范围](VALIDATION.md)
+[最新发布](https://github.com/xingyunshijie/carddock/releases/latest) · [更新迁移](UPDATE.md) · [测试范围](VALIDATION.md)
 
-程序镜像 `ghcr.io/xingyunshijie/carddock:1.0.0-nas.3`，支持 linux/amd64 和 linux/arm64。安装只需配置文件；完整 ZIP 用于源码备份和离线构建，无需上传到 NAS。
+镜像 `ghcr.io/xingyunshijie/carddock:1.0.0-nas.4`，支持 linux/amd64 与 linux/arm64。安装只需配置文件，无需上传源码 ZIP、运行生成器或安装 carddock-admin。各品牌 NAS 的权限和热插拔需实机验收。
 
-源码及随包依赖许可证见 [LICENSE](LICENSE) 和 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+[LICENSE](LICENSE) · [依赖许可证](THIRD-PARTY-NOTICES.md)

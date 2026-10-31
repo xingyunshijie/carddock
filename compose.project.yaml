@@ -1,6 +1,6 @@
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.3
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -10,18 +10,12 @@ services:
       AUTHENTICATION_ENABLED: "true"
       AUTHENTICATION_PASSWORD: "改成你自己的密码"
     volumes:
-      - carddock-data:/state
-      - /mnt/@usb:/sources:ro,rslave
-      - /volume2/NASgutai:/storage/area1
-      - /volume3/NAS02:/storage/area2
-      - /volume2/NASgutai:/manual/area1:ro
-      - /volume3/NAS02:/manual/area2:ro
+      - ./data:/state
+      - ./archive:/storage
+      - ./inbox:/sources:ro
       - /proc/1/mountinfo:/host/mountinfo:ro
       - /sys:/sys:ro
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
-    cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-volumes:
-  carddock-data:

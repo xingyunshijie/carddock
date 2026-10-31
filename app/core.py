@@ -175,14 +175,26 @@ class Engine:
         self.local = threading.local(); self.io_lock = threading.RLock(); self.blocked_sources = set(); self.controls = {}
         self.readers = json.loads((self.state/'readers.json').read_text()) if (self.state/'readers.json').exists() else {}
         self.lock = threading.RLock(); self.jobs = {}; self.active = False; self.seen = set(); self.cache = {}; self.scan_error = ''; self.arrivals = {}; self.watch_status = '等待设置自动导入'
-        self.config = {'auto': False, 'media_only': False, 'keep_parents': True, 'verify': 'sha256', 'primary': '', 'backups': [], 'brand': '', 'model': '', 'manual_sources': [], 'classify': True, 'exclude_proxies': False, 'directory_template': '{source}', 'filename_template': '', 'project': '', 'camera': '', 'card': '', 'extensions': '', 'date_from': '', 'date_to': '', 'conflict': 'keepBoth', 'backup_from_primary': True}
-        if (self.state/'config.json').exists(): self.config.update(json.loads((self.state/'config.json').read_text()))
+        self.config = {'setup_complete': False, 'auto': False, 'media_only': False, 'keep_parents': True, 'verify': 'sha256', 'primary': '', 'backups': [], 'brand': '', 'model': '', 'manual_sources': [], 'classify': True, 'exclude_proxies': False, 'directory_template': '{source}', 'filename_template': '', 'project': '', 'camera': '', 'card': '', 'extensions': '', 'date_from': '', 'date_to': '', 'conflict': 'keepBoth', 'backup_from_primary': True}
+        if (self.state/'config.json').exists():
+            saved = json.loads((self.state/'config.json').read_text())
+            self.config.update(saved)
+            if 'setup_complete' not in saved: self.config['setup_complete'] = True
         self.db = sqlite3.connect(str(self.state/'history.sqlite'), check_same_thread=False)
         self.db.execute('CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data TEXT)')
         for ident, data in self.db.execute('SELECT id,data FROM jobs ORDER BY rowid DESC LIMIT 100'):
             j = json.loads(data)
             if j['status'] in ('queued','running','pausing','paused','stopping'): j.update(status='interrupted', error='服务重启中断；重新提交将复核已完成文件', safe_to_remove=False)
             self.jobs[ident] = j
+    def initialize_primary(self, name):
+        """Choose a default only for a fresh installation, never for an upgrade."""
+        if not name or (self.state/'config.json').exists(): return
+        if name in ('.','..') or Path(name).name != name or '/' in name or '\\' in name:
+            raise ValueError('默认归档文件夹必须是单个名称')
+        if not self.targets: raise ValueError('没有可用的默认共享目录')
+        target = safe_path(str(self.targets[0]/name), self.targets, exists=False)
+        target.mkdir(exist_ok=True)
+        self.configure({'primary':str(target), 'manual_sources':[str(self.auto_sources[0])] if self.auto_sources else []})
     def save_job(self,j):
         with self.lock:
             self.db.execute('INSERT OR REPLACE INTO jobs VALUES (?,?)',(j['id'],json.dumps(j,ensure_ascii=False))); self.db.commit()
@@ -190,7 +202,7 @@ class Engine:
         with self.lock:
             c = dict(self.config); c.update({k:v for k,v in data.items() if k in c})
             if c['verify'] not in HASHES: raise ValueError('无效校验方式')
-            for k in ('auto','media_only','keep_parents','classify','exclude_proxies','backup_from_primary'):
+            for k in ('setup_complete','auto','media_only','keep_parents','classify','exclude_proxies','backup_from_primary'):
                 if not isinstance(c[k],bool): raise ValueError('无效开关')
             if not isinstance(c['backups'],list) or not isinstance(c['manual_sources'],list): raise ValueError('无效目录列表')
             if len(c['backups'])>8: raise ValueError('最多支持八个备份目录')

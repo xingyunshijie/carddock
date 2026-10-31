@@ -1,6 +1,6 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS · 构建3</title><style>body{margin:0;background:#f6f7f6;color:#202a25;font:17px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:880px;margin:30px auto;background:#fff;padding:38px;border-radius:16px}h1{font-size:29px}h2{margin-top:42px;color:#08765b}h3{margin-top:28px}a{color:#08765b}pre{padding:22px;background:#172332;color:#edf4f1;overflow:auto;border-radius:12px;font-size:14px;line-height:1.65}code{font-family:ui-monospace,monospace}p code{background:#eef2ef;padding:2px 5px}li{margin:8px 0}@media(max-width:650px){main{margin:0;padding:24px 18px}h1{font-size:25px}}</style><main><h1>CardDock · 影像归仓 NAS</h1><p>云景数码影画 出品 · V1.0 构建3</p><p><strong>Docker → 项目 → 创建 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。</strong></p><p>无需上传程序文件夹，无需配置生成器，无需安装后台认证服务。主盘与备份进入程序后选择。</p><h2>安装</h2><p><a href="NAS安装说明.md">完整安装说明</a> · <a href="compose.project.yaml">可直接粘贴的配置</a></p><pre><code>services:
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>影像归仓 NAS · 通用安装</title><style>body{margin:0;background:#f6f7f6;color:#202a25;font:17px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:880px;margin:30px auto;background:#fff;padding:38px;border-radius:16px}h1{font-size:29px}h2{margin-top:42px;color:#08765b}h3{margin-top:28px}a{color:#08765b}pre{padding:22px;background:#172332;color:#edf4f1;overflow:auto;border-radius:12px;font-size:14px;line-height:1.65}code{font-family:ui-monospace,monospace}p code{background:#eef2ef;padding:2px 5px}@media(max-width:650px){main{margin:0;padding:24px 18px}h1{font-size:25px}}</style><main><h1>CardDock · 影像归仓 NAS</h1><p>云景数码影画 出品 · V1.0 构建4</p><p><strong>创建 Docker 项目 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。</strong></p><p>通用安装使用项目内默认文件夹，不包含个人 NAS 地址、共享目录名称或固定存储卷编号。安装后在程序里更换主盘、添加备份。</p><h2>安装</h2><p><a href="NAS安装说明.md">完整安装说明</a> · <a href="compose.project.yaml">可直接粘贴的配置</a></p><pre><code>services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.3
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.4
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -10,18 +10,12 @@
       AUTHENTICATION_ENABLED: &quot;true&quot;
       AUTHENTICATION_PASSWORD: &quot;改成你自己的密码&quot;
     volumes:
-      - carddock-data:/state
-      - /mnt/@usb:/sources:ro,rslave
-      - /volume2/NASgutai:/storage/area1
-      - /volume3/NAS02:/storage/area2
-      - /volume2/NASgutai:/manual/area1:ro
-      - /volume3/NAS02:/manual/area2:ro
+      - ./data:/state
+      - ./archive:/storage
+      - ./inbox:/sources:ro
       - /proc/1/mountinfo:/host/mountinfo:ro
       - /sys:/sys:ro
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
-    cap_drop: [ALL]
-    security_opt: [&quot;no-new-privileges:true&quot;]
-volumes:
-  carddock-data:</code></pre><p>上面两组共享目录按当前 NAS 填写。其他 NAS 修改冒号左侧路径，密码至少12位；详细端口和目录说明见安装说明。</p><p>访问 <code>http://NAS_IP:18080</code>，输入自设密码。主盘、备份、归档规则在软件内设置。</p><h2>功能</h2><p>- 大疆全景序列保留拍摄组，组内 DNG/JPG 不拆分。</p><p>- 延时、普通 RAW/JPG、视频代理分类；拷贝和校验分别计数。</p><p>- SHA-256、XXHash64、BLAKE3、MD5；多份备份、主盘接力、暂停继续、队列和重试。</p><p>- JSON/TXT、日志与校验清单；兼容算法 MHL 和可打印报告。</p><h2>下载和更新</h2><p><a href="https://github.com/xingyunshijie/carddock/releases/tag/v1.0.0-nas.3">构建3发布页</a> · <a href="UPDATE.md">升级说明</a> · <a href="VALIDATION.md">测试范围</a></p><p>程序镜像 <code>ghcr.io/xingyunshijie/carddock:1.0.0-nas.3</code>，支持 linux/amd64 和 linux/arm64。安装只需配置文件；完整 ZIP 用于源码备份和离线构建，无需上传到 NAS。</p><p>源码及随包依赖许可证见 <a href="LICENSE">LICENSE</a> 和 <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>。</p></main></html>
+    security_opt: [&quot;no-new-privileges:true&quot;]</code></pre><p><code>inbox</code> 放待导入素材，<code>archive</code> 保存归档，<code>data</code> 保存设置与历史。新安装默认主盘为 <code>archive/影像归仓</code>；备份留空，自动导入关闭。</p><p>在程序的目标设置中更换主盘、添加备份或新建文件夹。独立硬盘、新共享目录和读卡器的接入方法见安装说明；Docker 必须先映射，软件才能访问。项目文件夹包含素材，更新时务必保留。</p><h2>功能</h2><p>全景序列、延时、RAW/JPG与代理分类；拷贝与校验分别计数。支持 SHA-256、XXHash64、BLAKE3、MD5、多份备份、队列、暂停继续、重试及报告。</p><h2>下载和说明</h2><p><a href="https://github.com/xingyunshijie/carddock/releases/latest">最新发布</a> · <a href="UPDATE.md">更新迁移</a> · <a href="VALIDATION.md">测试范围</a></p><p>镜像 <code>ghcr.io/xingyunshijie/carddock:1.0.0-nas.4</code>，支持 linux/amd64 与 linux/arm64。安装只需配置文件，无需上传源码 ZIP、运行生成器或安装 carddock-admin。各品牌 NAS 的权限和热插拔需实机验收。</p><p><a href="LICENSE">LICENSE</a> · <a href="THIRD-PARTY-NOTICES.md">依赖许可证</a></p></main></html>
