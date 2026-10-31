@@ -14,11 +14,17 @@ function settings(){const c={auto:$('modeAuto').checked,backups:$('backups').val
 function fillSettings(c){setMode(c.auto);for(const k of stringFields)$(k).value=k==='primary'?displayPath(c[k]??''):(c[k]??'');for(const k of boolFields)$(k).checked=!!c[k];$('camera_name').value=c.camera||'';$('backups').value=c.backups.map(displayPath).join('\n');updateCopyFlow()}
 async function save(extra={}){state.config=await api('config',{...settings(),...extra});setMode(state.config.auto);updateAuto()}
 function updateAuto(){$('auto').textContent=state.config?.auto?'自动导入已开启 · 点击暂停':'开启自动导入'}
+const cameraBrands={Sony:'索尼',Canon:'佳能',Nikon:'尼康',Panasonic:'松下',ARRI:'ARRI',DJI:'大疆',GoPro:'GoPro',Insta360:'Insta360',Apple:'Apple'};
+function sourceBrandLabel(d){
+ const brands=[...new Set([...(d.brands||[]),d.brand].filter(Boolean))];
+ if(brands.length>1)return brands.map(b=>cameraBrands[b]||b).join(' / ');
+ return d.overview||(brands.length?cameraBrands[brands[0]]||brands[0]:'未识别相机');
+}
 async function devices(){
  const sequence=++deviceSequence,list=await api('devices');if(sequence!==deviceSequence)return;
  deviceList=list;for(const path of [...batchSelection])if(!list.some(d=>d.path===path))batchSelection.delete(path);
  $('sourceStatus').textContent=list.some(d=>d.external)?`已识别 ${list.filter(d=>d.external).length} 个外接存储`:'未发现存储卡，可刷新或手动添加';
- $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><span class="device-icon">▱</span>${esc(d.external?(d.brand||d.display_name||d.name):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span><span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
+ $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 32 28" aria-hidden="true"><path d="M7 4h18l5 17a3 3 0 0 1-3 4H5a3 3 0 0 1-3-4L7 4Z"/><path d="M4 18h24"/><circle cx="24" cy="22" r=".8"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
  $('devices').querySelectorAll('button').forEach(b=>b.onclick=guard(()=>{setView('ingest');return select(list[Number(b.dataset.i)].path)}));
  $('devices').querySelectorAll('[data-batch]').forEach(c=>c.onchange=()=>{const path=list[Number(c.dataset.batch)].path;c.checked?batchSelection.add(path):batchSelection.delete(path);updateBatch()});
  updateBatch();updateFooter();
@@ -48,7 +54,7 @@ function renderJobs(){
  }).join(''):'<div class="empty">还没有导入任务</div>';
  for(const j of state.jobs){const old=terminalStates.get(j.id);if(old&&old!==j.status&&!['queued','running','paused','pausing','stopping'].includes(j.status)&&$('completionSound').checked)playSound(j.status==='completed');terminalStates.set(j.id,j.status)}
 }
-async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS 1.6 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS 1.6.1 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
@@ -154,7 +160,7 @@ function renderCopyMode(){
  const algorithm=$('verify').value,backup=$('backups').value.trim(),mode=algorithm==='quick'?'quick':backup?'dual':'safe';
  document.querySelectorAll('[data-copy-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.copyMode===mode);b.setAttribute('aria-pressed',b.dataset.copyMode===mode)});
  $('modeHint').textContent=algorithm==='quick'?'只检查文件大小，不执行内容哈希校验。完整性优先请用安全校验。':backup?'主盘内容校验完成，再生成并校验一份备份。':'逐个比较文件内容，确认拷贝完整。';
- $('modeHint').classList.toggle('warning',algorithm==='quick');
+ $('modeHint').classList.toggle('warning',algorithm==='quick');$('verifyRow').hidden=algorithm==='quick';
  $('summaryVerify').textContent=algorithm==='quick'?'快速':backup?'双盘':'安全';
  $('summaryVerifyHint').textContent=algorithm==='quick'?'仅大小检查':algorithm.toUpperCase()+' 内容校验';
  const primary=$('primary').value.trim();$('primaryName').textContent=primary?primary.split('/').filter(Boolean).pop():'选择主拷贝目录';

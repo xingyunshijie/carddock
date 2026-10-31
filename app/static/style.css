@@ -12,3 +12,30 @@ html[data-theme=dark]{color-scheme:dark;--bg:#18241d;--side:#1e2e25;--panel:#223
 @media(min-width:851px){.sidebar{overflow:clip}.workspace-nav,.sidebar-caption,.assurance{flex-shrink:0}.sidebar-source{min-height:0}.sidebar-source>.section-head,.sidebar-source>.hint,.sidebar-source>.add-source,.batch-tools,.batch-button{flex-shrink:0}.devices{min-height:0}.start-area>span{max-width:100%}}
 @media(min-width:851px) and (max-height:800px){.sidebar>.assurance{display:none}.workspace-nav button{min-height:36px;padding-top:9px;padding-bottom:9px}.sidebar{padding-top:20px}.sidebar .sidebar-source{margin-top:18px}.sidebar .add-source{padding:10px 8px;gap:4px}.sidebar .add-source .folder-mark{font-size:21px}.sidebar .add-source>span:last-child{display:none}.hero{padding-top:24px;padding-bottom:20px}.hero h1{font-size:26px;margin:10px 0 8px}.summary-strip{padding-top:18px;padding-bottom:18px}.preview>.empty{min-height:160px;padding-top:10px}.empty h3{font-size:17px}.sd-illustration{height:85px;width:75px;border-radius:20px;margin-bottom:15px}.sd-illustration svg{height:42px}.live-progress{padding-top:16px;padding-bottom:18px}}
 @media(min-width:851px) and (max-height:800px){header{height:100px;padding-top:20px;padding-bottom:20px}.app-shell{height:calc(100dvh - 132px)}.sidebar .add-source{display:none}.sidebar .devices{min-height:78px}.hero{padding-top:20px;padding-bottom:18px}.preview-section{padding-top:18px}.preview>.empty{padding-top:0}.preview>.empty h3{margin-top:12px}.sd-illustration{height:72px;width:66px;margin-bottom:12px}.empty p{font-size:10px}.filter-bar{margin-top:12px;margin-bottom:12px}}
+
+/* Cards and the add-folder tile share one scroll area; fixed controls cannot squeeze cards away. */
+.source-scroll{min-width:0}.devices{scrollbar-gutter:stable}
+@media(min-width:851px){
+ .sidebar{overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+ .sidebar-source{flex:1 0 240px;min-height:240px}
+ .source-scroll{flex:1 1 auto;min-height:110px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+ .sidebar .devices{flex:none;min-height:0;max-height:none;overflow:visible;padding-right:0}
+ .sidebar .add-source{display:flex}
+ .sidebar>.assurance{flex-shrink:0}
+}
+@media(min-width:851px) and (max-height:900px){.sidebar>.assurance{display:none}}
+@media(max-width:850px){.source-scroll{overflow:visible}}
+.card b{display:flex;align-items:center;gap:10px}
+.card .device-icon{width:30px;height:28px;flex:0 0 30px;margin:0;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+.header-links button[data-view="preferences"],.header-links button[data-view="help"]:nth-child(3){display:inline-flex}
+@media(max-width:580px){
+ header{display:grid;grid-template-columns:auto 1fr;height:auto;min-height:108px;gap:8px 10px;padding:14px 16px}
+ header .header-links{grid-column:1/-1;margin-left:0;justify-content:flex-end;flex-wrap:wrap;gap:4px}
+ header .header-links button{padding:5px 7px;font-size:10px}
+ header .header-links #logout:not([hidden]){display:inline-flex}
+}
+
+.verify-row{display:flex;align-items:center;gap:12px;margin:14px 0 12px}
+.verify-row label{flex:0 0 auto;margin:0;font-size:11px;color:var(--text)}
+.verify-row select{flex:1;min-width:0;margin:0;border:0;background:var(--raised);padding:7px 12px;font-size:12px;border-radius:7px}
