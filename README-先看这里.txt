@@ -1,9 +1,9 @@
-影像归仓 NAS V1.0 构建5 · 通用安装
+影像归仓 NAS V1.0 构建6 · 通用安装
 
 不需要上传源码包，也不依赖某个用户的NAS共享路径。
 
 1. NAS 的 Docker / Container Manager 中创建项目，名称填写 carddock。
-2. 粘贴 compose.project.yaml，修改 AUTHENTICATION_PASSWORD 为自己的登录密码后部署。
+2. 粘贴 compose.project.yaml，修改 AUTHENTICATION_PASSWORD 为自己的登录密码后部署（至少8位，最多256位，不能保留示例文字）。
 3. 访问 http://NAS_IP:18080，输入设置的密码。
 4. 首次进入先选择拷贝主目录，按需添加备份，再点击“保存并进入”。
 

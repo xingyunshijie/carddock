@@ -1,6 +1,6 @@
 # CardDock · 影像归仓 NAS
 
-云景数码影画 出品 · V1.0 构建5
+云景数码影画 出品 · V1.0 构建6
 
 **创建 Docker 项目 → 名称 carddock → 粘贴配置 → 修改密码 → 部署。**
 
@@ -21,7 +21,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       AUTHENTICATION_ENABLED: "true"
-      AUTHENTICATION_PASSWORD: "改成你自己的密码"
+      AUTHENTICATION_PASSWORD: "改成你自己的密码" # 必填：至少8位，最多256位，不能保留示例文字
     volumes:
       - ./data:/state
       - ./archive:/storage

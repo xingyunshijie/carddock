@@ -1,6 +1,6 @@
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.5
+    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.6
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -8,7 +8,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       AUTHENTICATION_ENABLED: "true"
-      AUTHENTICATION_PASSWORD: "改成你自己的密码"
+      AUTHENTICATION_PASSWORD: "改成你自己的密码" # 必填：至少8位，最多256位，不能保留示例文字
     volumes:
       - ./data:/state
       - ./archive:/storage

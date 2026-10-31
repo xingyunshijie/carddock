@@ -1,6 +1,6 @@
 # 影像归仓 NAS：创建 Docker 项目，开始素材归档
 
-V1.0 · 构建5 · 云景数码影画 出品
+V1.0 · 构建6 · 云景数码影画 出品
 
 面向支持 Docker Compose 的 Linux NAS。程序与依赖均在镜像内，主盘与备份安装后在程序内设置。
 
@@ -23,7 +23,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       AUTHENTICATION_ENABLED: "true"
-      AUTHENTICATION_PASSWORD: "改成你自己的密码"
+      AUTHENTICATION_PASSWORD: "改成你自己的密码" # 必填：至少8位，最多256位，不能保留示例文字
     volumes:
       - ./data:/state
       - ./archive:/storage

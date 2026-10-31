@@ -23,7 +23,7 @@ function renderJobs(){
  }).join(''):'<div class="empty">还没有导入任务</div>';
  for(const j of state.jobs){const old=terminalStates.get(j.id);if(old&&old!==j.status&&!['queued','running','paused','pausing','stopping'].includes(j.status)&&$('completionSound').checked)playSound(j.status==='completed');terminalStates.set(j.id,j.status)}
 }
-async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS V1.0 构建5 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS V1.0 构建6 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
@@ -44,6 +44,7 @@ $('authSubmit').onclick=async()=>{
  if($('authSubmit').disabled)return;
  clearAuthError();let candidate=$('authToken').value;
  if(!candidate){$('authError').textContent=authInfo.mode==='password'?'请输入登录密码':'请输入访问密钥';$('authToken').focus();return}
+ if(authInfo.mode==='password'&&([...candidate].length<8||[...candidate].length>256)){$('authError').textContent='登录密码至少8位，最多256位，请检查后重新输入。';$('authToken').setAttribute('aria-invalid','true');$('authToken').focus();return}
  $('authSubmit').disabled=true;$('authSubmit').textContent='连接中…';
  try{
   if(authInfo.mode==='password'){const result=await api('login',{password:candidate},'');candidate=result.token}else{await api('state',undefined,candidate)}
