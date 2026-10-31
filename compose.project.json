@@ -30,19 +30,19 @@
       "volumes": [
         {
           "type": "bind",
-          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/data",
+          "source": "./data",
           "target": "/state",
           "bind": {}
         },
         {
           "type": "bind",
-          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/archive",
+          "source": "./archive",
           "target": "/storage",
           "bind": {}
         },
         {
           "type": "bind",
-          "source": "/Users/wangyun/Documents/Codex/影像归仓/.tools/carddock-github-update-20261031/inbox",
+          "source": "./inbox",
           "target": "/sources",
           "read_only": true,
           "bind": {}
