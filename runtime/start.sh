@@ -27,7 +27,7 @@ if not auth.configured:
     legacy=(state/'config.json').is_file() and (state/'history.sqlite').is_file()
     if not (state/'access-key.json').exists() and (not key or key.startswith('CHANGE_ME') or not legacy and not re.fullmatch(r'[A-Za-z0-9_-]{16,128}',key)):
         raise SystemExit('请在 Docker 项目中设置 AUTHENTICATION_ENABLED=true 和自己的 AUTHENTICATION_PASSWORD')
-print('影像归仓 NAS 1.6.1 · 登录认证与校验依赖已就绪')
+print('影像归仓 NAS 1.6.2 · 登录认证与校验依赖已就绪')
 PY
 python "$RELEASE_ROOT/app/preflight.py"
 exec python "$RELEASE_ROOT/app/server.py"
