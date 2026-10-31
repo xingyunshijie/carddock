@@ -6,7 +6,7 @@ from core import browse_directories, physical_overlap, Engine
 class BrowseTest(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(); self.base=Path(self.tmp.name).resolve()
-        self.a=self.base/'NAS01'; self.b=self.base/'NAS02'
+        self.a=self.base/'NAS01'; self.b=self.base/'Archive'
         self.a.mkdir(); self.b.mkdir(); self.roots=[self.a,self.b]
     def tearDown(self): self.tmp.cleanup()
     def test_manual_nas_root_is_not_auto_scan_root(self):
@@ -35,7 +35,7 @@ class BrowseTest(unittest.TestCase):
         self.assertEqual(d['parent'],str(self.a)); self.assertEqual(d['entries'],[])
     def test_reject_outside_missing_and_symlinks(self):
         (self.a/'link').symlink_to(self.b,target_is_directory=True)
-        for value in [str(self.base),str(self.a/'missing'),str(self.a/'link'),str(self.a/'..'/'NAS02'),'relative']:
+        for value in [str(self.base),str(self.a/'missing'),str(self.a/'link'),str(self.a/'..'/'Archive'),'relative']:
             with self.assertRaises(ValueError): browse_directories(value,self.roots)
     def test_readonly_and_unavailable_root(self):
         with patch('core.os.access',return_value=False):

@@ -30,7 +30,7 @@ def write_private(path, text):
 def initialize(path):
     text=path.read_text() if path.exists() else ''
     if read_key(text) not in ('',PLACEHOLDER): return None
-    key=secrets.token_urlsafe(32); write_private(path,with_key(text,key)); return key
+    key='CardDock'; write_private(path,with_key(text,key)); return key
 
 def command(args, input=None):
     env=dict(os.environ); env.pop('ACCESS_TOKEN',None)

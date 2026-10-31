@@ -1,0 +1,138 @@
+{
+  "services": {
+    "carddock": {
+      "image": "python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337",
+      "restart": "unless-stopped",
+      "user": "1000:10",
+      "ports": [
+        "18080:8080"
+      ],
+      "environment": {
+        "TZ": "Asia/Shanghai",
+        "AUTHENTICATION_ENABLED": "true",
+        "AUTHENTICATION_PASSWORD": "改成你自己的密码",
+        "SOURCE_ROOTS": "/sources",
+        "MANUAL_SOURCE_ROOTS": "/manual/area1:/manual/area2",
+        "TARGET_ROOTS": "/storage/area1:/storage/area2",
+        "TARGET_LABELS": "{\"/storage/area1\": \"存储区1 · Media\", \"/storage/area2\": \"存储区2 · Archive\"}",
+        "STATE_DIR": "/state",
+        "HOST_MOUNTINFO": "/host/mountinfo",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": "/tmp/carddock-deps:/opt/carddock/app"
+      },
+      "command": [
+        "/bin/sh",
+        "/opt/carddock/runtime/start.sh"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/volume1/docker/carddock-nas-1.0-b2",
+          "target": "/opt/carddock",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/volume1/docker/carddock-nas-1.0-b2/state",
+          "target": "/state",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/@usb",
+          "target": "/sources",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false,
+            "propagation": "rslave"
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/volume2/Media",
+          "target": "/storage/area1",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/volume2/Media",
+          "target": "/manual/area1",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/volume3/Archive",
+          "target": "/storage/area2",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/volume3/Archive",
+          "target": "/manual/area2",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/proc/1/mountinfo",
+          "target": "/host/mountinfo",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/sys",
+          "target": "/sys",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp:size=128m,mode=1777"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/',timeout=3)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "start_period": "90s",
+        "retries": 3
+      },
+      "container_name": "carddock",
+      "working_dir": "/opt/carddock/app"
+    }
+  }
+}

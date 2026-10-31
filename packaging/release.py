@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
-"""Build a reproducible, explicit-allowlist installer archive without local secrets."""
-import hashlib,re,zipfile
-from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]
-FILES=['CardDock-help.html','VERSION','README.md','LICENSE','CHANGELOG.md','PORTABLE-INSTALL.md','Dockerfile','.dockerignore','.env.example','compose.yaml','compose.backup.yaml','deploy.py','access-key.py','update.sh','rollback.sh','setup.html','setup.js']
-FOLDERS=['app','admin','docs','packaging','tests']
-def build():
-    version=(ROOT/'VERSION').read_text().strip()
-    if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[a-z0-9.]+)?',version):raise ValueError('Invalid version')
-    paths=[ROOT/p for p in FILES]
-    for folder in FOLDERS:
-        paths.extend(p for p in (ROOT/folder).rglob('*') if p.is_file() and p.suffix in ('.py','.js','.html','.css','.svg','.md','.sh','.service'))
-    paths=sorted(set(p for p in paths if '__pycache__' not in p.parts))
-    out=ROOT/'dist';out.mkdir(exist_ok=True);archive=out/f'carddock-{version}-install.zip'
-    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
-        for p in paths:
-            if p.is_symlink():raise ValueError('No symlinks in release')
-            info=zipfile.ZipInfo('carddock/'+str(p.relative_to(ROOT)),(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o644<<16
-            z.writestr(info,p.read_bytes())
-    (out/'SHA256SUMS').write_text(hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+archive.name+'\n')
-    print(archive)
-if __name__=='__main__':build()
+"""Build the public installer from this repository; never package runtime state."""
+import hashlib,json,pathlib,re,zipfile
+root=pathlib.Path(__file__).resolve().parents[1];version=(root/'VERSION').read_text().strip()
+match=re.fullmatch(r'1\.0\.0-nas\.(\d+)',version)
+if not match:raise SystemExit('Unexpected NAS version')
+folder='carddock-nas-1.0-b'+match[1];dist=root/'dist';dist.mkdir(exist_ok=True)
+archive=dist/(folder+'-install.zip')
+selected=[]
+for p in root.rglob('*'):
+ rel=p.relative_to(root)
+ if any(x in ('.git','.github','dist','state','__pycache__') for x in rel.parts):continue
+ if p.is_symlink():raise SystemExit('Refuse symlink: '+str(rel))
+ if p.is_file() and p.name not in ('.env','.DS_Store') and p.suffix not in ('.pyc','.pem','.key','.sqlite','.sqlite3'):selected.append(p)
+checks=[]
+with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+ for p in sorted(selected):
+  rel=p.relative_to(root).as_posix();z.write(p,folder+'/'+rel);checks.append(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+rel)
+ z.writestr(folder+'/state/',b'');z.writestr(folder+'/SHA256SUMS.txt','\n'.join(checks)+'\n')
+with zipfile.ZipFile(archive) as z:assert z.testzip() is None
+for source,name in [('NAS安装说明.html','CardDock-NAS-install.html'),('NAS安装说明.md','CardDock-NAS-install.md'),('compose.project.yaml','compose.project.yaml')]:
+ (dist/name).write_bytes((root/source).read_bytes())
+assets=[archive,dist/'CardDock-NAS-install.html',dist/'CardDock-NAS-install.md',dist/'compose.project.yaml']
+(dist/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in assets))
+print(json.dumps({'version':version,'installer':archive.name,'bytes':archive.stat().st_size,'files':len(selected)},ensure_ascii=False))

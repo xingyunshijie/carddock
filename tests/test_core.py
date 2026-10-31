@@ -7,7 +7,7 @@ class IngestTest(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(); self.root=Path(self.tmp.name).resolve()
         self.src=self.root/'sources'/'CARD'; self.a=self.root/'dest'/'primary'; self.b=self.root/'dest'/'backup'; self.c=self.root/'dest'/'backup2'
         for p in (self.src,self.a,self.b,self.c): p.mkdir(parents=True)
-        self.e=Engine(self.root/'state',[self.src.parent],[self.a,self.b,self.c]); self.e.configure({'primary':str(self.a),'backups':[str(self.b)]})
+        self.e=Engine(self.root/'state',[self.src.parent],[self.a,self.b,self.c]); self.e.configure({'primary':str(self.a),'backups':[str(self.b)],'media_only':True})
     def tearDown(self): self.e.db.close(); self.tmp.cleanup()
     def run_job(self):
         j=self.e.submit(str(self.src))
@@ -18,7 +18,7 @@ class IngestTest(unittest.TestCase):
         self.e.configure({'backups':[]})
         for mode in ('quick','md5','sha256'):
             self.e.configure({'verify':mode}); (self.src/(mode+'.jpg')).write_bytes(b'original-'+mode.encode())
-            j=self.run_job(); self.assertEqual(j['status'],'completed'); self.assertTrue(j['safe_to_remove'])
+            j=self.run_job(); self.assertEqual(j['status'],'completed'); self.assertTrue(j['primary_verified'])
             self.assertEqual(j['destinations'],{str(self.a):'verified'})
             self.assertEqual(j['done'],j['total']); self.assertEqual(j['bytes_done'],j['bytes_total'])
             self.assertIn('未设置备份',j['phase']); self.assertEqual(list(self.b.rglob('*')),[])
@@ -48,7 +48,7 @@ class IngestTest(unittest.TestCase):
     def test_two_copies_and_duplicate_repair(self):
         (self.src/'a.ARW').write_bytes(b'raw-data'); (self.src/'b.JPG').write_bytes(b'photo')
         (self.src/'c.LRV').write_bytes(b'proxy'); (self.src/'skip.txt').write_text('skip')
-        j=self.run_job(); self.assertEqual(j['status'],'completed'); self.assertEqual(j['copied'],6); self.assertTrue(j['safe_to_remove'])
+        j=self.run_job(); self.assertEqual(j['status'],'completed'); self.assertEqual(j['copied'],6); self.assertTrue(j['primary_verified'])
         self.assertTrue(all(s=='verified' for s in j['destinations'].values()))
         for dest in (self.a,self.b): self.assertEqual((dest/'CARD/RAW/a.ARW').read_bytes(),b'raw-data')
         j=self.run_job(); self.assertEqual(j['skipped'],6)
@@ -67,11 +67,11 @@ class IngestTest(unittest.TestCase):
         def copy(src,dst,*args):
             if str(dst).startswith(str(self.b)): raise OSError('backup unavailable')
             return orig(src,dst,*args)
-        self.e.copy=copy; j=self.run_job(); self.assertTrue(j['safe_to_remove']); self.assertEqual(j['status'],'failed'); self.assertEqual(j['destinations'][str(self.b)],'failed')
+        self.e.copy=copy; j=self.run_job(); self.assertTrue(j['primary_verified']); self.assertEqual(j['status'],'failed'); self.assertEqual(j['destinations'][str(self.b)],'failed')
     def test_source_removed_after_primary(self):
         f=self.src/'x.jpg'; f.write_bytes(b'x'); orig=self.e.save_job
         def save(j):
-            if j['safe_to_remove'] and f.exists(): f.unlink()
+            if j.get('primary_verified') and f.exists(): f.unlink()
             orig(j)
         self.e.save_job=save; self.assertEqual(self.run_job()['status'],'completed')
     def test_symlinks_and_overlap(self):
@@ -149,7 +149,7 @@ class IngestTest(unittest.TestCase):
     def test_primary_tampering_blocks_backup(self):
         (self.src/'x.jpg').write_bytes(b'good'); orig=self.e.save_job; altered=[False]
         def save(j):
-            if j['safe_to_remove'] and not altered[0]:
+            if j.get('primary_verified') and not altered[0]:
                 altered[0]=True; (self.a/'CARD/JPG/x.jpg').write_bytes(b'evil')
             orig(j)
         self.e.save_job=save; j=self.run_job(); self.assertEqual(j['status'],'failed'); self.assertFalse((self.b/'CARD/JPG/x.jpg').exists()); self.assertFalse(j['safe_to_remove'])
@@ -164,8 +164,12 @@ class IngestTest(unittest.TestCase):
         links=sysroot/'dev/block'; links.mkdir(parents=True); (links/'8:1').symlink_to(disk/'sda1'); (links/'9:0').symlink_to(md)
         mount=self.root/'mountinfo'; mount.write_text(f'22 1 8:1 / {self.src} rw - exfat /dev/sda1 rw\n23 1 9:0 / / rw - ext4 /dev/md0 rw\n')
         self.assertEqual(mount_candidates([self.src.parent],str(mount),str(sysroot)),[])
-    def test_reject_more_than_one_backup(self):
-        with self.assertRaises(ValueError): self.e.configure({'backups':[str(self.b),str(self.c)]})
+    def test_multiple_backups_and_limit(self):
+        self.e.configure({'backups':[str(self.b),str(self.c)]})
+        (self.src/'multiple.jpg').write_bytes(b'photo')
+        j=self.run_job();self.assertEqual(j['status'],'completed');self.assertEqual(j['done'],3)
+        self.assertTrue((self.c/'CARD/JPG/multiple.jpg').exists())
+        with self.assertRaises(ValueError):self.e.configure({'backups':[str(self.b)]*9})
     def test_empty_does_not_signal_safe(self):
         j=self.run_job(); self.assertEqual(j['status'],'failed'); self.assertFalse(j['safe_to_remove'])
     def test_quick_duplicate_uses_hash(self):

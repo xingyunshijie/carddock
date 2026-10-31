@@ -27,7 +27,7 @@ class DeploymentTest(unittest.TestCase):
         with self.assertRaises(ValueError):d.configuration(self.a)
     def test_private_config_and_no_secret_in_image(self):
         f=self.root/'config.json';d.private_json(f,d.configuration(self.a));self.assertEqual(stat.S_IMODE(f.stat().st_mode),0o600)
-        self.assertGreaterEqual(len(json.loads(f.read_text())['services']['carddock']['environment']['ACCESS_TOKEN']),32)
+        self.assertEqual(json.loads(f.read_text())['services']['carddock']['environment']['ACCESS_TOKEN'],'CardDock')
     def invoke(self,action):
         with patch('sys.argv',['deploy.py','--file',str(self.root/'compose.json'),action]):d.main()
     def test_start_checks_before_container_start(self):
@@ -47,7 +47,7 @@ class DeploymentTest(unittest.TestCase):
             with self.assertRaises(ValueError):self.invoke('update')
             r.assert_not_called()
     def test_update_keeps_original_config_for_rollback(self):
-        old=d.configuration(self.a);d.private_json(self.root/'deployed.json',old);old['services']['carddock'].pop('build');old['services']['carddock']['image']='carddock:0.12';d.private_json(self.root/'compose.json',old)
+        old=d.configuration(self.a);d.private_json(self.root/'deployed.json',old);self.a.image='carddock:0.12';d.private_json(self.root/'compose.json',d.configuration(self.a))
         with patch.object(d,'running',return_value='abc'),patch.object(d,'guard'),patch.object(d,'run',return_value='sha256:old'),patch.object(d,'compose'),patch.object(d,'check'),patch.object(d,'ready'):
             self.invoke('update')
         saved=json.loads((self.root/'rollback.json').read_text());self.assertEqual(saved['services']['carddock']['volumes'],old['services']['carddock']['volumes']);self.assertIn('rollback-',saved['services']['carddock']['image'])

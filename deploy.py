@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Portable NAS Compose configuration and guarded lifecycle. Python 3.8+."""
-import secrets
 import argparse, ipaddress, json, os, re, subprocess, sys, tempfile, time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
@@ -38,7 +37,7 @@ def configuration(a):
         for q in paths[i+1:]:
             if p==q or p in q.parents or q in p.parents or p.samefile(q):raise ValueError('源、目标和状态目录不能相同或相互包含')
     source,primary=paths[:2];state=paths[-1]
-    env={'ACCESS_TOKEN':secrets.token_urlsafe(32),'SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo'}
+    env={'ACCESS_TOKEN':'CardDock','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo'}
     volumes=[bind(source,'/sources',True,'rslave'),bind(primary,'/destinations/primary'),bind(state,'/state'),bind('/proc/1/mountinfo','/host/mountinfo',True),bind('/sys','/sys',True)]
     if a.backup:
         env['TARGET_ROOTS']+=':/destinations/backup';volumes.append(bind(paths[2],'/destinations/backup'))
@@ -53,7 +52,7 @@ def configuration(a):
         env.update(ADMIN_HTTPS_URL=f'https://{authority}:{a.https_port}',ADMIN_AUTH_SOCKET='/run/carddock-admin/auth.sock',TLS_CERT='/tls/server.crt',TLS_KEY='/tls/server.key')
         ports.append(f'{host}:{a.https_port}:8443')
         volumes.extend([bind('/etc/carddock/tls','/tls',True),bind('/run/carddock-admin','/run/carddock-admin',True)])
-    service={'image':a.image or 'carddock:0.12.0-beta.1','restart':'unless-stopped','user':f'{a.uid}:{a.gid}','ports':ports,'environment':env,'volumes':volumes,'read_only':True,'tmpfs':['/tmp:size=64m'],'cap_drop':['ALL'],'security_opt':['no-new-privileges:true']}
+    service={'image':a.image or 'carddock:1.0.0-nas.2','restart':'unless-stopped','user':f'{a.uid}:{a.gid}','ports':ports,'environment':env,'volumes':volumes,'read_only':True,'tmpfs':['/tmp:size=64m'],'cap_drop':['ALL'],'security_opt':['no-new-privileges:true']}
     if not a.image:service['build']={'context':str(ROOT),'args':{'INSTALL_EXIFTOOL':'1'}}
     return {'name':a.project,'services':{'carddock':service}}
 
@@ -92,7 +91,7 @@ def main():
     a=p.parse_args();path=a.file.resolve()
     if a.action=='configure':
         if path.exists():raise ValueError('部署配置已存在；请备份后手动编辑，避免覆盖现有设置')
-        private_json(path,configuration(a));print('配置已生成：'+str(path));print('随机访问密钥已保存在配置文件的 ACCESS_TOKEN 中，请妥善保存。');return
+        private_json(path,configuration(a));print('配置已生成：'+str(path));return
     data=json.loads(path.read_text());backup=path.with_name('rollback.json');deployed=path.with_name('deployed.json')
     if a.action=='check':check(path);return
     if a.action=='rollback':

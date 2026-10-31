@@ -1,54 +1,44 @@
-# CardDock · 影像归仓
+# CardDock · 影像归仓 NAS
 
-**星云视界 出品** · 摄影存储卡安全导入工具 · 中文网页 · Docker
+**云景数码影画 出品 · V1.0 构建2 · 测试版**
 
-<img src="app/static/icon.svg" width="96" alt="仓库守护存储卡">
-
-存储卡 → 主文件夹复制与校验 → 可选备份文件夹复制与校验。支持自动插卡导入、手动导入、重复文件复核、冲突文件保留，以及 RAW、JPG、视频、声音、视频代理分类。
-
-**当前版本：0.12.0-beta.1，公开测试版。** 支持构建 Linux AMD64 / ARM64 镜像；不能把镜像能启动等同于所有 NAS 的读卡器、权限和热插拔都已验证。先用测试卡验证，再用于正式素材。
-
-完整中文手册：[安装与使用帮助](docs/HELP.md)，程序底部也有帮助入口；安装包内 `CardDock-help.html` 可双击离线阅读。
+摄影存储卡导入、素材归档与内容校验。大疆全景序列、延时、普通 RAW/JPG 和视频代理按规则存储；主盘和备份进入程序后选择。
 
 ## 下载与安装
 
-到 [Releases](https://github.com/xingyunshijie/carddock/releases) 下载版本安装包及匹配架构的镜像。首版已通过 AMD64/ARM64 容器构建、源只读检查及合成文件主备 SHA256 测试。
+[下载新版统一安装包](https://github.com/xingyunshijie/carddock/releases/download/v1.0.0-nas.2/carddock-nas-1.0-b2-install.zip) · [新版发布页面](https://github.com/xingyunshijie/carddock/releases/tag/v1.0.0-nas.2)
 
-- **绿联 Docker 图形界面安装**：[安装指南](docs/UGREEN.md)。使用包内 `setup.html` 离线生成你的 Compose 配置，输入实际路径、UID/GID；不收集数据。
-- **终端安装、启动前检查、更新与回退**：[通用安装指南](PORTABLE-INSTALL.md)。
-- **后续版本与维护**：[更新发布流程](docs/RELEASING.md)、[更新记录](CHANGELOG.md)。
+**[完整安装说明：按参考教程的结构创建 Docker 项目](NAS安装说明.md)**
 
-项目不是绿联官方应用，与绿联无隶属关系。需要 NAS 自己挂载读卡器；应用不格式化、不挂载、不弹出存储卡。主程序不需要特权模式、Docker socket 或主机网络。
+1. 创建项目：NAS 的 **Docker → 项目 → 创建**，项目名填 `carddock`。
+2. 将安装说明中的完整配置粘贴进去，按实际情况修改路径。
+3. 端口默认 `18080:8080`，被占用时只修改左侧主机端口。
+4. 认证保持 `AUTHENTICATION_ENABLED=true`，将 `AUTHENTICATION_PASSWORD` 改成自己的12位以上登录密码。
 
-## 功能
+程序文件准备、完整 YAML、端口与认证说明、首次访问和日常使用，均在安装说明中。主盘、备份和归档规则在软件内设置。
 
-- Sony、Canon、Nikon、Panasonic、ARRI、DJI 常见目录识别；ExifTool 尝试读取机型，也可手动指定。
-- 内置/USB 读卡器来源、按接口记忆 SD 编号；证据不足时允许手动设置。
-- 自动或手动模式，默认手动。主文件夹必选，最多一个可选备份。
-- 默认 SHA256；可选 MD5、快速数量/体积核对。快速模式不能发现等长内容损坏。
-- 已有文件仍核对内容；同名不同内容保留两份，完整文件经校验后原子发布。
-- 进度、粗略平均速度、暂停、继续、终止，逐文件 JSON 校验报告。
-- 浏览已授权映射的存储区和子目录；不会自动开放整个 NAS。
-- 每次新安装生成独立随机密钥，配置与任务记录保存在状态目录。
+使用 Docker 官方 Python 运行镜像加载安装包内程序和 Linux amd64/arm64 校验依赖。首次需要拉取基础镜像。推荐下载 Releases 的安装包，解压后目录名为 `carddock-nas-1.0-b2`；源码下载目录需要按实际路径调整项目配置。
 
-主文件夹校验完成后才提示可拔卡，此时备份可能尚未完成；仍需在 NAS 中安全弹出。所有副本核对前不要格式化原卡。不同文件夹不代表独立硬盘；主备建议在不同存储设备。
+## 本次更新
 
-完整目录模式会保留普通伴随文件，但始终跳过隐藏文件、回收站、符号链接与特殊文件。需要摄影机工程的完整副本时请检查这些规则。代理按目录与文件名识别，不会生成代理或转码。
+- 大疆 `PANORAMA` → **全景序列/拍摄组/原文件**，保留组内 DNG、JPG、伴随元数据与内部目录，不拆 RAW/JPG。
+- 延时序列保留组号，再按格式分开；代理平铺，可排除 LRF/LRV；索尼视频缩略图自动忽略。
+- 先写入后集中校验，拷贝和校验分别显示文件计数。
+- SHA-256、XXHash64、BLAKE3、MD5 和快速大小检查；已有文件重新复核后去重。
+- 多目标、主盘接力备份、队列、暂停继续、终止、按原规则重试、预设和命名筛选。
+- JSON/TXT/传输日志/校验清单、兼容算法 MHL 1.1；HTML 报告可打印为 PDF。
+- 单用户密码登录；密码由安装人员在 Docker 项目配置中设置，旧密钥不会覆盖显式配置的密码。
 
-## 开发与验证
+## 其他说明
 
-Python 3.9+，主服务仅依赖 Python 标准库；Docker 标准镜像额外安装 ExifTool。
+[完整配置](compose.project.yaml) · [升级说明](UPDATE.md) · [功能同步与平台差异](功能同步说明.md) · [测试范围](VALIDATION.md) · [更新记录](CHANGELOG.md)
 
-```sh
-python3 -m unittest discover -s tests -v
-node --check app/static/app.js
-python3 packaging/release.py
-```
+本机86项自动测试与网页操作已通过。GitHub Actions 会继续验证测试和 Linux amd64/arm64 容器启动；NAS 卷权限、设备热插拔、断电和不同品牌硬件仍需实机确认。先使用可重复的小份素材核对分类与副本，再用于正式导入。
 
-提交触发测试和双架构 Docker 构建；`v` 版本标签在测试通过后发布镜像及安装附件。实际硬件兼容记录见 [兼容性与验证](docs/COMPATIBILITY.md)。
+程序不格式化、不挂载或直接弹出存储卡。安全弹出请使用 NAS 系统。不同文件夹不代表独立磁盘备份。
 
-## 授权
+## 授权与反馈
 
-免费供个人非商业使用，保留“星云视界 出品”署名；修改、再发布和商用须另行授权。详见 [LICENSE](LICENSE)。这是公开源码的免费软件，不是 MIT 开源项目。分享时请链接到本仓库或 Releases。
+授权沿用 [LICENSE](LICENSE)，原版权和许可说明保留。公开源码供审阅与问题定位，不等同于 MIT 等开放源代码许可；第三方组件许可位于 `licenses/` 和 `THIRD-PARTY-NOTICES.md`。
 
-问题反馈请使用 [Issues](https://github.com/xingyunshijie/carddock/issues)，说明 NAS 型号、系统版本、CPU 架构和去除密钥后的错误日志。不要上传访问密钥、账号密码、私人素材或包含密钥的 Compose 文件。
+[提交问题](https://github.com/xingyunshijie/carddock/issues)时请提供系统、版本、CPU架构和去掉密码后的日志，不要上传密码、密钥、私人素材或包含凭据的项目配置。

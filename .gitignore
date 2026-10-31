@@ -1,5 +1,6 @@
 .env
-state/
+state/*
+!state/.gitkeep
 __pycache__/
 *.pyc
 deployment/

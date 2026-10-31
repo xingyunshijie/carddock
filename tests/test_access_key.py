@@ -7,13 +7,13 @@ class KeyTest(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.env=Path(self.tmp.name)/'.env'
     def tearDown(self): self.tmp.cleanup()
-    def test_initial_random_private_and_idempotent(self):
+    def test_initial_carddock_private_and_idempotent(self):
         self.env.write_text('PUID=1000\nACCESS_TOKEN='+k.PLACEHOLDER+'\n')
-        key=k.initialize(self.env);self.assertGreaterEqual(len(key),32)
+        key=k.initialize(self.env);self.assertEqual(key,'CardDock')
         self.assertEqual(k.read_key(self.env.read_text()),key);self.assertIn('PUID=1000',self.env.read_text())
         self.assertEqual(stat.S_IMODE(self.env.stat().st_mode),0o600)
         self.assertIsNone(k.initialize(self.env));self.assertEqual(k.read_key(self.env.read_text()),key)
-        other=Path(self.tmp.name)/'other';self.assertNotEqual(k.initialize(other),key)
+        other=Path(self.tmp.name)/'other';self.assertEqual(k.initialize(other),key)
     def test_reject_injection_duplicate_and_symlink(self):
         for key in ['short','a'*16+'\nX=1','a'*16+'$()']:
             with self.assertRaises(ValueError): k.with_key('',key)

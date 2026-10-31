@@ -1,0 +1,5 @@
+# Native streaming hashes; standard hashlib handles SHA-256 and MD5.
+xxhash==4.0.2
+blake3==1.0.11
+typing_extensions==4.15.0
+tzdata==2026.6

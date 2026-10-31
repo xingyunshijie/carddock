@@ -1,14 +1,15 @@
 services:
   carddock:
     build: .
-    image: carddock:0.12.0-beta.1
+    image: carddock:1.0.0-nas.2
     container_name: carddock
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8080}:8080"
     environment:
-      ACCESS_TOKEN: "${ACCESS_TOKEN:?请在 .env 中设置访问密钥}"
+      AUTHENTICATION_ENABLED: "${AUTHENTICATION_ENABLED:-true}"
+      AUTHENTICATION_PASSWORD: "${AUTHENTICATION_PASSWORD:?请在 .env 中设置登录密码}"
       SOURCE_ROOTS: /sources
       TARGET_ROOTS: /destinations/primary
       STATE_DIR: /state
