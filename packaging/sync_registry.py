@@ -49,10 +49,12 @@ def sync(image, output, root=ROOT):
     if not user or not password:
         raise ValueError('请先在 GitHub Secrets 设置 CN_REGISTRY_USERNAME 和 CN_REGISTRY_PASSWORD')
     template = (root / 'compose.project.yaml').read_text()
-    old = SOURCE + ':' + version
-    if template.count(old) != 1:
+    source_version = SOURCE + ':' + version
+    choices = [value for value in (source_version, SOURCE + ':latest') if template.count(value) == 1]
+    if len(choices) != 1:
         raise ValueError('安装配置与当前发布版本不一致')
-    raw = inspect(old)
+    old = choices[0]
+    raw = inspect(source_version)
     digest = manifest_info(raw)
     destination = image + ':' + version
     with tempfile.TemporaryDirectory(prefix='carddock-registry-') as temp:
@@ -71,12 +73,18 @@ def sync(image, output, root=ROOT):
             platform = item.get('platform', {})
             if platform.get('os') == 'linux' and platform.get('architecture') in ('amd64', 'arm64'):
                 inspect(image + '@' + item['digest'])
+        # Publish the tracking tag only after the fixed version has passed checks.
+        channel = image + ':latest'
+        run(['copy', '--all', '--preserve-digests', '--retry-times', '3', '--authfile', str(auth),
+             'docker://' + SOURCE + '@' + digest, 'docker://' + channel])
+        if manifest_info(inspect(channel)) != digest:
+            raise ValueError('latest 标签验证失败，停止生成安装配置')
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     config = output / 'compose.cn.yaml'
-    config.write_text(template.replace(old, destination))
+    config.write_text(template.replace(old, channel if old.endswith(':latest') else destination))
     receipt = output / 'registry-verification.json'
-    receipt.write_text(json.dumps({'version': version, 'image': destination, 'source': old,
+    receipt.write_text(json.dumps({'version': version, 'image': destination, 'source': source_version, 'channel_image': channel,
                                   'digest': digest, 'anonymous_manifest_access': True,
                                   'platforms': ['linux/amd64', 'linux/arm64']}, indent=2) + '\n')
     (output / 'SHA256SUMS').write_text(''.join(

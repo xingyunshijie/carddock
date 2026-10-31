@@ -18,8 +18,8 @@ with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
   rel=p.relative_to(root).as_posix();z.write(p,folder+'/'+rel);checks.append(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+rel)
  z.writestr(folder+'/state/',b'');z.writestr(folder+'/SHA256SUMS.txt','\n'.join(checks)+'\n')
 with zipfile.ZipFile(archive) as z:assert z.testzip() is None
-for source,name in [('NAS安装说明.html','CardDock-NAS-install.html'),('NAS安装说明.md','CardDock-NAS-install.md'),('compose.project.yaml','compose.project.yaml')]:
+for source,name in [('NAS安装说明.html','CardDock-NAS-install.html'),('NAS安装说明.md','CardDock-NAS-install.md'),('compose.project.yaml','compose.project.yaml'),('compose.version.yaml','compose.version.yaml')]:
  (dist/name).write_bytes((root/source).read_bytes())
-assets=[archive,dist/'CardDock-NAS-install.html',dist/'CardDock-NAS-install.md',dist/'compose.project.yaml']
+assets=[archive,dist/'CardDock-NAS-install.html',dist/'CardDock-NAS-install.md',dist/'compose.project.yaml',dist/'compose.version.yaml']
 (dist/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in assets))
 print(json.dumps({'version':version,'installer':archive.name,'bytes':archive.stat().st_size,'files':len(selected)},ensure_ascii=False))

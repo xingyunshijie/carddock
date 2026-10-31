@@ -15,7 +15,7 @@ DEPLOY · 一段配置拉起容器
 ```yaml
 services:
   carddock:
-    image: ghcr.io/xingyunshijie/carddock:1.0.0-nas.5
+    image: ghcr.io/xingyunshijie/carddock:latest
     container_name: carddock
     restart: unless-stopped
     ports:
@@ -120,3 +120,7 @@ USER GUIDE · 安装后再设置主盘与备份
 首次用少量素材检查目录、分类和备份结果。各品牌的目录权限、读卡器热插拔需要实机验收；本版不代表所有 NAS 型号都经过认证。
 
 首次安装和更新需要 NAS 能访问 `ghcr.io`。跨网络访问建议使用 NAS 的 HTTPS 反向代理或 VPN。
+
+## 后续一键更新
+
+推荐配置使用 latest 标签。支持镜像检查的 NAS 会在发现新镜像后提示更新；先结束拷贝、关闭自动导入，再更新原项目，保留全部目录。检查周期由 NAS 决定，不保证发布后立即提示。详细方法见 [UPDATE.md](UPDATE.md)。需要锁定具体版本可用 [compose.version.yaml](compose.version.yaml)。

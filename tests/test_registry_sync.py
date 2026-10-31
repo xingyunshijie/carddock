@@ -63,15 +63,28 @@ class RegistrySyncTest(unittest.TestCase):
     def test_success_uses_stdin_secrets_and_pins_both_architectures(self):
         with patch.dict(os.environ, CN_REGISTRY_USERNAME='test', CN_REGISTRY_PASSWORD='test-only'), patch.object(sync, 'inspect', return_value=self.manifest) as inspect, patch.object(sync, 'run') as run:
             sync.sync('registry.example.com/team/carddock', self.root / 'out', self.root)
-            login, copy = run.call_args_list
+            login, copy, latest = run.call_args_list
             self.assertIn('--password-stdin', login.args[0])
             self.assertNotIn('test-only', login.args[0])
             self.assertEqual(login.kwargs['input'], b'test-only\n')
             self.assertIn('--all', copy.args[0])
             self.assertIn('--preserve-digests', copy.args[0])
             self.assertTrue(any('@sha256:' in x for x in copy.args[0]))
-            self.assertEqual(inspect.call_count, 4)
+            self.assertEqual(inspect.call_count, 5)
+            self.assertTrue(latest.args[0][-1].endswith(':latest'))
             config = (self.root / 'out/compose.cn.yaml').read_text()
             self.assertIn('registry.example.com/team/carddock:1.0.0-nas.4', config)
             receipt = (self.root / 'out/registry-verification.json').read_text()
             self.assertNotIn('test-only', receipt)
+
+    def test_tracking_template_preserves_latest_for_nas_update_checks(self):
+        (self.root / 'compose.project.yaml').write_text('image: ghcr.io/xingyunshijie/carddock:latest\n')
+        with patch.dict(os.environ, CN_REGISTRY_USERNAME='test', CN_REGISTRY_PASSWORD='test-only'), patch.object(sync, 'inspect', return_value=self.manifest), patch.object(sync, 'run'):
+            sync.sync('registry.example.com/team/carddock', self.root / 'out', self.root)
+        self.assertIn('registry.example.com/team/carddock:latest', (self.root / 'out/compose.cn.yaml').read_text())
+
+    def test_failed_latest_verification_never_emits_installer(self):
+        with patch.dict(os.environ, CN_REGISTRY_USERNAME='test', CN_REGISTRY_PASSWORD='test-only'), patch.object(sync, 'inspect', side_effect=[self.manifest]*4 + [self.manifest+b'\n']), patch.object(sync, 'run'):
+            with self.assertRaises(ValueError):
+                sync.sync('registry.example.com/team/carddock', self.root / 'out', self.root)
+        self.assertFalse((self.root / 'out').exists())
