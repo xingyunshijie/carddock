@@ -21,9 +21,9 @@ function sourceBrandLabel(d){
  return d.overview||(brands.length?cameraBrands[brands[0]]||brands[0]:'未识别相机');
 }
 async function devices(){
- const sequence=++deviceSequence,list=await api('devices');if(sequence!==deviceSequence)return;
+ const sequence=++deviceSequence,found=await api('devices');if(sequence!==deviceSequence)return;const list=found.filter(d=>d.external===true);
  deviceList=list;for(const path of [...batchSelection])if(!list.some(d=>d.path===path))batchSelection.delete(path);
- $('sourceStatus').textContent=list.some(d=>d.external)?`已识别 ${list.filter(d=>d.external).length} 个外接存储`:'未发现存储卡，可刷新或手动添加';
+ $('sourceStatus').textContent=list.some(d=>d.external)?`已识别 ${list.filter(d=>d.external).length} 个外接存储`:'未发现外接存储，可刷新或手动添加';
  $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 32 28" aria-hidden="true"><path d="M7 4h18l5 17a3 3 0 0 1-3 4H5a3 3 0 0 1-3-4L7 4Z"/><path d="M4 18h24"/><circle cx="24" cy="22" r=".8"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
  $('devices').querySelectorAll('button').forEach(b=>b.onclick=guard(()=>{setView('ingest');return select(list[Number(b.dataset.i)].path)}));
  $('devices').querySelectorAll('[data-batch]').forEach(c=>c.onchange=()=>{const path=list[Number(c.dataset.batch)].path;c.checked?batchSelection.add(path):batchSelection.delete(path);updateBatch()});
