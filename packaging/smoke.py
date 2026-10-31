@@ -11,8 +11,8 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
  for name in samples:
   p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('synthetic '+name).encode())
  name='carddock-smoke-'+uuid.uuid4().hex[:10]
- args=['run','-d','--name',name,'--user',str(os.getuid())+':'+str(os.getgid()),'--read-only','--tmpfs','/tmp:size=128m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','-p','127.0.0.1::8080']
- for key,value in {'AUTHENTICATION_ENABLED':'true','AUTHENTICATION_PASSWORD':'CI-Only-Password-2026','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary:/destinations/backup','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo','PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':'/tmp/carddock-deps:/opt/carddock/app'}.items():args+=['-e',key+'='+value]
+ args=['run','-d','--name',name,'--user',str(os.getuid())+':'+str(os.getgid()),'--read-only','--tmpfs','/tmp:size=128m,mode=1777','--tmpfs','/opt/carddock-deps:rw,exec,nosuid,nodev,size=32m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','-p','127.0.0.1::8080']
+ for key,value in {'AUTHENTICATION_ENABLED':'true','AUTHENTICATION_PASSWORD':'CI-Only-Password-2026','SOURCE_ROOTS':'/sources','TARGET_ROOTS':'/destinations/primary:/destinations/backup','STATE_DIR':'/state','HOST_MOUNTINFO':'/host/mountinfo','PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':'/opt/carddock-deps:/opt/carddock/app'}.items():args+=['-e',key+'='+value]
  for host,target,ro in [(root,'/opt/carddock',True),(source,'/sources',True),(primary,'/destinations/primary',False),(backup,'/destinations/backup',False),(state,'/state',False),(pathlib.Path('/proc/1/mountinfo'),'/host/mountinfo',True),(pathlib.Path('/sys'),'/sys',True)]:args+=['--mount','type=bind,source='+str(host)+',target='+target+(',readonly' if ro else '')]
  args += [image,'/bin/sh','/opt/carddock/runtime/start.sh']
  token=''
@@ -22,7 +22,11 @@ with tempfile.TemporaryDirectory(prefix='carddock-container-') as tmp:
    headers={'Content-Type':'application/json'}
    if authenticated and token:headers['Authorization']='Bearer '+token
    req=urllib.request.Request(url+'/api/'+path,headers=headers,data=json.dumps(data).encode() if data is not None else None)
-   with urllib.request.urlopen(req,timeout=10) as r:return json.load(r)
+   try:
+    with urllib.request.urlopen(req,timeout=10) as r:return json.load(r)
+   except urllib.error.HTTPError as e:
+    if e.code==401:raise
+    raise RuntimeError('API '+path+': '+e.read().decode()) from e
   for _ in range(120):
    try:
     assert request('auth',authenticated=False)=={'mode':'password','enabled':True};break

@@ -19,7 +19,7 @@ services:
       HOST_MOUNTINFO: &quot;/host/mountinfo&quot;
       PYTHONUNBUFFERED: &quot;1&quot;
       PYTHONDONTWRITEBYTECODE: &quot;1&quot;
-      PYTHONPATH: &quot;/tmp/carddock-deps:/opt/carddock/app&quot;
+      PYTHONPATH: &quot;/opt/carddock-deps:/opt/carddock/app&quot;
     command:
       - &quot;/bin/sh&quot;
       - &quot;/opt/carddock/runtime/start.sh&quot;
@@ -91,6 +91,7 @@ services:
     read_only: true
     tmpfs:
       - &quot;/tmp:size=128m,mode=1777&quot;
+      - &quot;/opt/carddock-deps:rw,exec,nosuid,nodev,size=32m,mode=1777&quot;
     cap_drop:
       - &quot;ALL&quot;
     security_opt:
