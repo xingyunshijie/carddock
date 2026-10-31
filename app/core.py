@@ -50,9 +50,28 @@ def browse_directories(value, roots, labels=None):
             'writable': bool(p and os.access(p, os.W_OK | os.X_OK)),
             'directories': [e['path'] for e in entries], 'entries': entries}
 
+def mount_location(path, lines):
+    matches = []
+    for line in lines:
+        fields = line.split(' - ', 1)[0].split()
+        if len(fields) < 6: continue
+        decode = lambda v: re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1],8)), v)
+        mount = Path(decode(fields[4]))
+        if inside(path, mount):
+            matches.append((len(mount.parts), fields[2], Path(decode(fields[3])) / path.relative_to(mount)))
+    if not matches: return None
+    _, device, location = max(matches, key=lambda v: v[0])
+    return device, location
+
 def physical_overlap(a, b):
     # Bind mounts may expose the same directory under unrelated path names.
-    return any(a.samefile(p) for p in [b] + list(b.parents)) or any(b.samefile(p) for p in [a] + list(a.parents))
+    if any(a.samefile(p) for p in [b] + list(b.parents)) or any(b.samefile(p) for p in [a] + list(a.parents)): return True
+    try:
+        lines = Path('/proc/self/mountinfo').read_text().splitlines()
+    except OSError:
+        return False
+    first, second = mount_location(a, lines), mount_location(b, lines)
+    return bool(first and second and first[0] == second[0] and (inside(first[1],second[1]) or inside(second[1],first[1])))
 
 def files(root, media=False):
     def fail(error):raise error

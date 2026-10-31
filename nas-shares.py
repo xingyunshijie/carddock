@@ -58,6 +58,8 @@ def base_configuration():
 def configuration(base, shares):
     result = json.loads(json.dumps(base))
     service = result['services']['carddock']
+    if service.get('image', '').split(':')[0] == 'ghcr.io/xingyunshijie/carddock':
+        service['image'] = 'ghcr.io/xingyunshijie/carddock:latest'
     env = service.setdefault('environment', {})
     if not isinstance(env, dict):
         raise ValueError('基础配置需要使用键值形式的 environment')
@@ -68,7 +70,7 @@ def configuration(base, shares):
         return v.get('target', '') if isinstance(v, dict) else v.split(':')[1]
     service['volumes'] = [v for v in volumes if not target(v).startswith('/shares/')]
     for name, source in sorted(shares.items(), key=lambda v: v[0].casefold()):
-        key = name if re.fullmatch(r'[^/\\:\x00-\x1f]+', name) and name not in ('.', '..') else 'share-' + hashlib.sha256(name.encode()).hexdigest()[:12]
+        key = name if re.fullmatch(r'[^/\\:\x00-\x1f]+', name) and not name.startswith(('.', '@')) else 'share-' + hashlib.sha256(name.encode()).hexdigest()[:12]
         destination = '/shares/' + key
         labels[destination] = name
         service['volumes'].append({'type': 'bind', 'source': str(source), 'target': destination,
@@ -86,7 +88,13 @@ def write_private(path, data):
     try:
         with os.fdopen(fd, 'w') as f:
             os.fchmod(f.fileno(), 0o600)
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            # The input is already resolved; prevent a second Compose interpolation.
+            def literal(value):
+                if isinstance(value, str): return value.replace('$', '$$')
+                if isinstance(value, list): return [literal(v) for v in value]
+                if isinstance(value, dict): return {k: literal(v) for k,v in value.items()}
+                return value
+            json.dump(literal(data), f, ensure_ascii=False, indent=2)
             f.write('\n')
         os.replace(name, path)
     finally:

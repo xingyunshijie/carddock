@@ -1,8 +1,11 @@
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from core import physical_overlap
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'app'))
@@ -50,6 +53,13 @@ class SharedStorageTest(unittest.TestCase):
         after = share.stat()
         self.assertEqual((before.st_uid, before.st_gid, before.st_mode), (after.st_uid, after.st_gid, after.st_mode))
 
+    def test_existing_password_dollar_signs_survive_compose_serialization(self):
+        target = self.root/'compose.shared.yaml'
+        installer.write_private(target, {'services': {'carddock': {'environment': {'AUTHENTICATION_PASSWORD': 'Test$Password'}}}})
+        value = json.loads(target.read_text())['services']['carddock']['environment']['AUTHENTICATION_PASSWORD']
+        self.assertEqual(value, 'Test$$Password')
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+
     def test_only_real_granted_directories_are_listed(self):
         parent = self.root/'shares'; parent.mkdir()
         (parent/'实际共享').mkdir()
@@ -65,3 +75,14 @@ class SharedStorageTest(unittest.TestCase):
         for i, path in enumerate(paths):
             path.mkdir(); cfg = self.root/f'{i}.conf'; cfg.write_text(f'[Share]\npath = {path}\n'); configs.append(cfg)
         with self.assertRaises(ValueError): installer.discover(configs)
+
+    def test_nested_bind_mount_aliases_cannot_be_source_and_backup(self):
+        a, b = self.root/'mapped-share', self.root/'mapped-archive'
+        a.mkdir(); b.mkdir()
+        lines = f'1 0 8:2 /docker {a} rw - ext4 /dev/sda rw\n2 0 8:2 /docker/archive {b} rw - ext4 /dev/sda rw\n'
+        with patch('core.Path.read_text', return_value=lines):
+            self.assertTrue(physical_overlap(a,b))
+            self.assertTrue(physical_overlap(b,a))
+        separate = lines.replace('/docker/archive', '/other-archive')
+        with patch('core.Path.read_text', return_value=separate):
+            self.assertFalse(physical_overlap(a,b))
