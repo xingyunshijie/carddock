@@ -326,6 +326,19 @@ class Engine:
                 # Ejection between mount discovery and inspection must not hide other cards.
                 self.cache.pop(d['identity'],None)
         return available
+    def naming_preview(self, value, options=None):
+        if options is not None and not isinstance(options,dict): raise ValueError('无效命名设置')
+        with self.io_lock:
+            root=safe_path(value,self.sources)
+            if any(inside(root,Path(p)) for p in self.blocked_sources): raise ValueError('此卡已停止访问；重新开始任务后可预览')
+            with self.lock:
+                c=dict(self.config)
+            c.update({k:v for k,v in (options or {}).items() if k in ('directory_template','filename_template','project','camera','card')})
+            self.validate_options(c)
+            info=next((d for d in self.devices() if d['path']==str(root)),None)
+            if info is None: info=detect(root)
+            overview=device_overview(info)
+            return {'namespace':str(folder(c,root,overview)),'device':overview,'source_name':root.name}
     def preview(self,value):
         with self.io_lock:
             if any(inside(Path(value).resolve(),Path(p)) for p in self.blocked_sources): raise ValueError('此卡已停止访问；重新开始任务后可预览')
@@ -338,27 +351,50 @@ class Engine:
             if cat: counts[cat]+=1
             if len(rows)<200: rows.append({'path':str(p.relative_to(root)),'size':s,'category':cat or '其他'})
         return {'path':str(root),'count':n,'bytes':total,'counts':counts,'files':rows,'camera':detect(root)}
-    def submit(self, source, options=None, enqueue=False):
+    def _submission_plan(self,source,options=None):
+        c=json.loads(json.dumps(self.config)); c.update(options or {})
+        root=safe_path(source,self.sources); primary=safe_path(c['primary'],self.targets)
+        if not isinstance(c['backups'],list) or len(c['backups'])>1: raise ValueError('最多支持一个备份目录')
+        self.validate_options(c)
+        backups=[safe_path(p,self.targets) for p in c['backups']]
+        paths=[root,primary]+backups
+        for i,a in enumerate(paths):
+            for b in paths[i+1:]:
+                if inside(a,b) or inside(b,a) or physical_overlap(a,b): raise ValueError('源目录、主文件夹和备份目录不能相同或互相包含')
+        if c['verify'] not in HASHES: raise ValueError('无效校验方式')
+        if not c.get('_resolved_folder'):c['_resolved_folder']=str(folder(c,root,device_overview(detect(root))))
+        return root,primary,backups,c
+    def submit_batch(self,sources,enqueue=False):
+        if not isinstance(sources,list) or not 1<=len(sources)<=32 or not all(isinstance(p,str) for p in sources): raise ValueError('请选择1至32个数据源')
         with self.lock:
             if self.active and not enqueue: raise ValueError('已有任务执行中，请加入队列')
-            c=json.loads(json.dumps(self.config)); c.update(options or {})
-            root=safe_path(source,self.sources); primary=safe_path(c['primary'],self.targets)
-            if not isinstance(c['backups'],list) or len(c['backups'])>1: raise ValueError('最多支持一个备份目录')
-            self.validate_options(c)
-            backups=[safe_path(p,self.targets) for p in c['backups']]
-            paths=[root,primary]+backups
-            for i,a in enumerate(paths):
-                for b in paths[i+1:]:
-                    if inside(a,b) or inside(b,a) or physical_overlap(a,b): raise ValueError('源目录、主文件夹和备份目录不能相同或互相包含')
-            if c['verify'] not in HASHES: raise ValueError('无效校验方式')
-            if not c.get('_resolved_folder'):c['_resolved_folder']=str(folder(c,root,device_overview(detect(root))))
+            frozen=json.loads(json.dumps(self.config))
+            plans=[self._submission_plan(source,frozen) for source in sources]
+            for i,plan in enumerate(plans):
+                for other in plans[:i]:
+                    if physical_overlap(plan[0],other[0]): raise ValueError('批量数据源不能重复或互相包含')
+            before=set(self.jobs);blocked=set(self.blocked_sources)
+            try:
+                jobs=[self.submit(str(root),options=c,enqueue=True,_start=False) for root,primary,backups,c in plans]
+            except Exception:
+                for ident in set(self.jobs)-before:
+                    self.jobs.pop(ident,None);self.controls.pop(ident,None)
+                    self.db.execute('DELETE FROM jobs WHERE id=?',(ident,))
+                self.db.commit();self.blocked_sources=blocked
+                raise
+            if not self.active:self.start_job(jobs[0])
+            return jobs
+    def submit(self, source, options=None, enqueue=False, _start=True):
+        with self.lock:
+            if self.active and not enqueue: raise ValueError('已有任务执行中，请加入队列')
+            root,primary,backups,c=self._submission_plan(source,options)
             ident=uuid.uuid4().hex[:12]
             j={'id':ident,'source':str(root),'status':'queued','phase':'等待','created':time.time(),'done':0,'total':0,'bytes_done':0,'bytes_total':0,'destinations':{},'manifest':[],'copied':0,'skipped':0,'safe_to_remove':False,'primary_verified':False,'error':'','options':c,'source_identity': [root.stat().st_dev, root.stat().st_ino], 'target_identities': {str(t):[t.stat().st_dev,t.stat().st_ino] for t in [primary]+backups}}
             self.blocked_sources.discard(str(root))
             self.controls[ident]={'stop':threading.Event(),'pause':threading.Event(),'started':time.monotonic(),'paused_seconds':0}
             j.update(transferred_bytes=0,speed_bps=0,io_released=False)
             self.jobs[ident]=j; self.save_job(j)
-            if not self.active: self.start_job(j)
+            if _start and not self.active: self.start_job(j)
             return j
     def hash(self,p,algorithm):
         if algorithm=='xxh64':

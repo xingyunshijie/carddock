@@ -32,6 +32,31 @@ class ApiTests(unittest.TestCase):
         self.assertTrue((self.target/'晨曦').is_dir())
         self.assertEqual(self.request('mkdir',{'parent':str(self.target),'name':'../bad'})[0],400)
         self.assertEqual(self.request('mkdir',{'parent':str(self.source),'name':'no'})[0],400)
+    def test_naming_preview_uses_unsaved_options_and_keeps_config(self):
+        before=json.loads(self.request('state')[1])['config']
+        payload={'source':str(self.source),'options':{'directory_template':'{project}/机位{camera}/卡号{card}/{source}','project':'晨曦','camera':'A','card':'01'}}
+        status,body,_=self.request('naming-preview',payload)
+        self.assertEqual(status,200,body);self.assertEqual(json.loads(body)['namespace'],'晨曦/机位A/卡号01/source')
+        self.assertEqual(json.loads(self.request('state')[1])['config'],before)
+        self.assertEqual(self.request('naming-preview',payload,key=False)[0],401)
+        self.assertEqual(self.request('naming-preview',payload,origin='http://evil.invalid')[0],403)
+        self.assertEqual(self.request('naming-preview',{'source':str(self.root),'options':{}})[0],400)
+        payload['options']['directory_template']='../escape'
+        self.assertEqual(self.request('naming-preview',payload)[0],400)
+    def test_batch_sources_endpoint(self):
+        self.request('config',{'primary':str(self.target)})
+        a,b=self.source/'A',self.source/'B';a.mkdir();b.mkdir()
+        (a/'a.JPG').write_bytes(b'a');(b/'b.JPG').write_bytes(b'b')
+        self.assertEqual(self.request('jobs/batch',{'sources':[str(a),str(self.root)]})[0],400)
+        self.assertEqual(json.loads(self.request('state')[1])['jobs'],[])
+        self.assertEqual(self.request('jobs/batch',{'sources':[str(a),str(b)]},key=False)[0],401)
+        status,body,_=self.request('jobs/batch',{'sources':[str(a),str(b)]})
+        self.assertEqual(status,201,body);ids={j['id'] for j in json.loads(body)['jobs']};self.assertEqual(len(ids),2)
+        for _ in range(200):
+            state=json.loads(self.request('state')[1]);jobs=[j for j in state['jobs'] if j['id'] in ids]
+            if len(jobs)==2 and all(j['status']=='completed' for j in jobs):break
+            time.sleep(.01)
+        self.assertTrue(all(j['status']=='completed' for j in jobs))
     def test_copy_export_retry_preset_delete(self):
         status,body,_=self.request('config',{'primary':str(self.target),'media_only':False});self.assertEqual(status,200,body)
         status,body,_=self.request('jobs',{'source':str(self.source)});self.assertEqual(status,201,body);ident=json.loads(body)['id']

@@ -53,11 +53,12 @@ def component(s):
 
 def folder(c,root,device='',at=None):
     template=c.get('directory_template','{source}')
+    if not isinstance(template,str) or template.startswith('/') or '\\' in template: raise ValueError('目录模板无效，使用 / 分层')
     values={'date':(at or datetime.date.today()).strftime('%Y.%m.%d'),'project':c.get('project',''),'device':device,'camera':c.get('camera',''),'card':c.get('card',''),'source':root.name}
     for key in ('camera','card'):
         if not values[key]: template=template.replace(('机位' if key=='camera' else '卡号')+'{'+key+'}','')
     for key,value in values.items(): template=template.replace('{'+key+'}',component(value))
-    if template.startswith('/') or '\\' in template or '{' in template or '}' in template: raise ValueError('目录模板无效，使用 / 分层')
+    if '\\' in template or '{' in template or '}' in template: raise ValueError('目录模板无效，使用 / 分层')
     parts=[component(x) for x in template.split('/') if x]
     if not parts or not any(parts): raise ValueError('归档目录不能为空')
     return Path(*[x for x in parts if x])

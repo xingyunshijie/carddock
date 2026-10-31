@@ -26,6 +26,8 @@ jobs:
       - name: Check frontend and deployment syntax
         run: |
           node --check app/static/app.js
+          node --check app/static/notifications.js
+          node tests/test_notifications.js
           node --check app/static/access-key.js
           sh -n runtime/start.sh
           sh -n runtime/image-start.sh

@@ -50,3 +50,16 @@ header{height:var(--app-header-height);padding-top:16px;padding-bottom:16px}
 .hero p{line-height:1.35}
 @media(min-width:851px){.app-shell{height:calc(100dvh - var(--app-header-height) - var(--app-footer-height));min-height:0}}
 @media(max-width:580px){header{height:auto;min-height:92px;padding-top:12px;padding-bottom:10px;row-gap:5px}.hero{padding-top:14px;padding-bottom:12px}.hero h1{margin-top:6px;margin-bottom:4px}}
+.workflow-card{max-width:740px;padding:24px;border:1px solid var(--line);border-radius:13px;background:var(--panel);margin:22px 0}
+.content-panel .workflow-card h2{margin:0 0 20px;font-size:19px}
+.content-panel .workflow-card h2 em{font-size:13px}
+.workflow-card label{max-width:none;font-size:12px;margin-bottom:20px;font-weight:550}
+.workflow-card input:not([type=checkbox]),.workflow-card select{background:var(--bg);border:0;padding:12px 14px;line-height:1.45;border-radius:8px}
+.workflow-card .folder-layout{width:auto;max-width:100%;margin:0 0 16px;padding:9px 34px 9px 13px;background:var(--raised);font-size:14px;font-weight:550}
+.content-panel .workflow-card .hint{font-size:12px;line-height:1.8;margin:14px 0 22px}
+.template-tokens{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.naming-path{padding:16px;background:var(--bg);border-radius:8px;min-height:84px;margin-top:20px}
+.naming-path>span{font-size:12px;font-weight:600;color:var(--muted)}
+.naming-path #namingPreview{font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);overflow-wrap:anywhere;margin:9px 0 0;min-height:20px}
+.card .device-icon{width:26px;height:32px;flex-basis:26px}
+@media(max-width:580px){.workflow-card{padding:18px;margin:18px 0}.content-panel .workflow-card h2{font-size:17px}.workflow-card .folder-layout{font-size:12px;width:100%}.identity-card .input-row{align-items:flex-start}}

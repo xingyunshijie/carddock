@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200,{'nonce':nonce}); return
         if not u.path.startswith('/api/'):
 
-            names={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/icon.svg':('icon.svg','image/svg+xml'),'/brand.png':('brand.png','image/png'),'/version':('version.html','text/html; charset=utf-8'),'/access-key':('access-key.html','text/html; charset=utf-8'),'/access-key.js':('access-key.js','text/javascript; charset=utf-8')}
+            names={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/notifications.js':('notifications.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8'),'/icon.svg':('icon.svg','image/svg+xml'),'/brand.png':('brand.png','image/png'),'/version':('version.html','text/html; charset=utf-8'),'/access-key':('access-key.html','text/html; charset=utf-8'),'/access-key.js':('access-key.js','text/javascript; charset=utf-8')}
             if u.path not in names: self.send(404,{'error':'Not found'}); return
             name,kind=names[u.path]; self.send(200,(STATIC/name).read_bytes(),kind); return
         if not self.authorized(): return
@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/api/state':
                 for job in list(engine.jobs.values()):
                     if job['status'] in ('running','paused','pausing','stopping'): engine.metrics(job)
-                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.6.2','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
+                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.6.3','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
             elif u.path=='/api/report':
                 ident=q.get('id',[''])[0]
                 with engine.lock:
@@ -148,6 +148,8 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data,dict):raise ValueError('请求必须为对象')
             if self.path=='/api/logout':
                 password_auth.logout(self.headers.get('Authorization',''));self.send(200,{'ok':True})
+            elif self.path=='/api/naming-preview':
+                self.send(200,engine.naming_preview(data.get('source',''),data.get('options')))
             elif self.path=='/api/config':
                 if isinstance(data.get('primary'),str) and data['primary']:
                     data['primary']=container_path(data['primary'],host_paths,engine.targets)
@@ -163,6 +165,8 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path=='/api/reader':
                 engine.set_reader_origin(data['reader_id'],data['origin']); self.send(200,{'ok':True})
             elif self.path=='/api/control': self.send(200,engine.control(data['id'],data['action']))
+            elif self.path=='/api/jobs/batch':
+                self.send(201,{'jobs':engine.submit_batch(data.get('sources'),enqueue=data.get('enqueue') is True)})
             elif self.path=='/api/jobs':self.send(201,engine.submit(data['source'],enqueue=data.get('enqueue') is True))
             elif self.path=='/api/retry':self.send(201,engine.retry(data['id']))
             elif self.path=='/api/remove':self.send(200,engine.remove(data['id']))

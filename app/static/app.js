@@ -1,9 +1,13 @@
+let checkboxSelection=false;
+let namingTimer,namingSequence=0,soundContext=null,connectionFailures=0,connectionAlerted=false;
 let currentView='ingest',previewData=null,previewSequence=0,deviceList=[],deviceSequence=0;const batchSelection=new Set();
-const $=id=>document.getElementById(id);let selected='',state={},terminalStates=new Map(),soundReady=false,authInfo={mode:'legacy',enabled:true},browseCallback,browseKind,browseParent='',browseCurrent='',browseDisplay='',browseSequence=0;
+const $=id=>document.getElementById(id);let selected='',state={},soundReady=false,authInfo={mode:'legacy',enabled:true},browseCallback,browseKind,browseParent='',browseCurrent='',browseDisplay='',browseSequence=0;
+let previousSoundStates={};try{previousSoundStates=JSON.parse(sessionStorage.getItem('carddock-sound-states')||'{}')}catch(e){}
+const jobSoundTracker=CardDockNotifications.createTracker(previousSoundStates);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const size=n=>{let i=0;while(n>=1024&&i<4){n/=1024;i++}return n.toFixed(i?1:0)+' '+['B','KB','MB','GB','TB'][i]};
 function notice(t,error=false){$('notice').textContent=t;$('notice').style.display='block';$('notice').className=error?'error':''}
-async function api(path,data,token=sessionStorage.getItem('token')||''){const r=await fetch('/api/'+path,{method:data?'POST':'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok){const error=Error(j.error||r.statusText);error.status=r.status;throw error;}return j}
+async function api(path,data,token=sessionStorage.getItem('token')||''){const r=await fetch('/api/'+path,{method:data?'POST':'GET',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok){const error=Error(j.error||r.statusText);error.status=r.status;throw error;}if(data&&['jobs','jobs/batch','retry'].includes(path))for(const task of (path==='jobs/batch'?j.jobs||[]:[j]))if(task.id)sessionStorage.setItem('carddock-sound-states',JSON.stringify(jobSoundTracker.remember(task.id)));return j}
 function guard(fn){return async()=>{try{await fn()}catch(e){notice(e.message,true)}}}
 function displayPath(value){const map=state.storage_path_map||{};for(const key of Object.keys(map).sort((a,b)=>b.length-a.length)){if(value===key||value.startsWith(key+'/'))return map[key]+value.slice(key.length)}return value}
 function setMode(auto){$('modeAuto').checked=!!auto;$('modeManual').checked=!auto}
@@ -11,7 +15,7 @@ function updateCopyFlow(){const n=$('backups').value.split('\n').filter(x=>x.tri
 const stringFields=['primary','brand','model','verify','project','card','directory_template','filename_template','extensions','date_from','date_to','conflict'];
 const boolFields=['media_only','keep_parents','exclude_proxies','classify','backup_from_primary'];
 function settings(){const c={auto:$('modeAuto').checked,backups:$('backups').value.split('\n').map(x=>x.trim()).filter(Boolean),camera:$('camera_name').value.trim()};for(const k of stringFields)c[k]=$(k).value.trim();for(const k of boolFields)c[k]=$(k).checked;return c}
-function fillSettings(c){setMode(c.auto);for(const k of stringFields)$(k).value=k==='primary'?displayPath(c[k]??''):(c[k]??'');for(const k of boolFields)$(k).checked=!!c[k];$('camera_name').value=c.camera||'';$('backups').value=c.backups.map(displayPath).join('\n');updateCopyFlow()}
+function fillSettings(c){setMode(c.auto);for(const k of stringFields)$(k).value=k==='primary'?displayPath(c[k]??''):(c[k]??'');for(const k of boolFields)$(k).checked=!!c[k];$('camera_name').value=c.camera||'';$('backups').value=c.backups.map(displayPath).join('\n');updateCopyFlow();syncFolderLayout();queueNamingPreview()}
 async function save(extra={}){state.config=await api('config',{...settings(),...extra});setMode(state.config.auto);updateAuto()}
 function updateAuto(){$('auto').textContent=state.config?.auto?'自动导入已开启 · 点击暂停':'开启自动导入'}
 const cameraBrands={Sony:'索尼',Canon:'佳能',Nikon:'尼康',Panasonic:'松下',ARRI:'ARRI',DJI:'大疆',GoPro:'GoPro',Insta360:'Insta360',Apple:'Apple'};
@@ -24,9 +28,9 @@ async function devices(){
  const sequence=++deviceSequence,found=await api('devices');if(sequence!==deviceSequence)return;const list=found.filter(d=>d.external===true);
  deviceList=list;for(const path of [...batchSelection])if(!list.some(d=>d.path===path))batchSelection.delete(path);
  $('sourceStatus').textContent=list.some(d=>d.external)?`已识别 ${list.filter(d=>d.external).length} 个外接存储`:'未发现外接存储，可刷新或手动添加';
- $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 32 28" aria-hidden="true"><path d="M7 4h18l5 17a3 3 0 0 1-3 4H5a3 3 0 0 1-3-4L7 4Z"/><path d="M4 18h24"/><circle cx="24" cy="22" r=".8"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
- $('devices').querySelectorAll('button').forEach(b=>b.onclick=guard(()=>{setView('ingest');return select(list[Number(b.dataset.i)].path)}));
- $('devices').querySelectorAll('[data-batch]').forEach(c=>c.onchange=()=>{const path=list[Number(c.dataset.batch)].path;c.checked?batchSelection.add(path):batchSelection.delete(path);updateBatch()});
+ $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 30 36" aria-hidden="true"><path d="M10 2h15a3 3 0 0 1 3 3v27a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V10l8-8Z"/><path d="M12 5v9m4-9v9m4-9v9m4-9v9"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
+ $('devices').querySelectorAll('button').forEach(b=>b.onclick=guard(()=>{const path=list[Number(b.dataset.i)].path;if(batchSelection.size<=1){checkboxSelection=true;batchSelection.clear();batchSelection.add(path)}setView('ingest');return select(path)}));
+ $('devices').querySelectorAll('[data-batch]').forEach(c=>c.onchange=()=>{checkboxSelection=true;const path=list[Number(c.dataset.batch)].path;c.checked?batchSelection.add(path):batchSelection.delete(path);updateBatch()});
  updateBatch();updateFooter();
 }
 async function select(path){
@@ -36,7 +40,7 @@ async function select(path){
  $('camera').textContent=d.camera.overview||[d.camera.brand,d.camera.model].filter(Boolean).join(' ')||'未识别设备';
  const categories=Object.entries(d.counts).filter(([,v])=>v>0);
  $('fileFilters').innerHTML='<button data-category="" class="active">全部</button>'+categories.map(([k,v])=>`<button data-category="${esc(k)}">${esc(k)} ${v}</button>`).join('');
- renderPreview();
+ renderPreview();queueNamingPreview();
 }
 function renderPreview(){
  if(!previewData)return;
@@ -52,9 +56,12 @@ function renderJobs(){
   const stage=j.stage==='copy'?'拷贝':j.stage==='verify'?'校验':j.stage==='size'?'大小复核':j.status==='completed'?'完成':'处理';
   return `<div class="job"><div class="job-top"><b>${esc(j.source.split('/').pop())} <span class="muted">${esc(j.id)}</span></b><span class="${j.status==='failed'?'error':''}">${esc(j.phase)}</span></div><div class="progress"><div style="width:${Math.max(0,Math.min(100,fraction*100))}%"></div></div><p><strong>${stage} ${active?(j.stage_done??j.done):j.done} / ${active?(j.stage_total??j.total):j.total}</strong> · 当前阶段 ${Math.round(fraction*100)}% · 总体已校验 ${j.done} / ${j.total} · ${esc(j.options.verify.toUpperCase())}</p><p class="path">${esc(j.current_file||'')}</p><p>实际写入 ${size(j.transferred_bytes||0)} · ${j.status==='paused'?'已暂停':`${!active?'已结束':j.stage==='copy'?'实时 '+size(j.realtime_bps||0)+'/s':'校验中'} · 平均 ${size(j.speed_bps||0)}/s`} · 已用 ${timeLabel(j.elapsed_seconds||0)}${j.eta_seconds!=null?' · 预计剩余 '+timeLabel(j.eta_seconds)+'（不含待校验）':''} · 新拷贝 ${j.copied} · 复核跳过 ${j.skipped}</p><p>${Object.entries(j.destinations||{}).map(([p,s])=>esc(p)+'：'+({pending:'等待',running:'处理中',verified:'✓ 已校验',failed:'失败',cancelled:'已终止','skipped-conflict':'有未备份项'}[s]||s)).join('<br>')}</p>${j.primary_verified&&active?'<p class="safe">主拷贝所选范围已复核，正在处理后续任务；请等待全部副本完成。</p>':''}${j.safe_to_remove?'<p class="safe">✓ 全部目标内容校验完成；核对报告后，在 NAS 系统中安全弹出。</p>':''}${j.error?`<p class="error">${esc(j.error)}</p>`:''}${['running','pausing','paused'].includes(j.status)?`<button class="task-control" data-job="${esc(j.id)}" data-action="${['paused','pausing'].includes(j.status)?'resume':'pause'}">${['paused','pausing'].includes(j.status)?'继续':'暂停'}</button> <button class="task-control" data-job="${esc(j.id)}" data-action="stop">终止并释放文件</button> `:''}${!active?`<button class="retry" data-job="${esc(j.id)}">按原规则重试</button> `:''}${!active||j.status==='queued'?`<button class="remove" data-job="${esc(j.id)}">删除队列记录</button> `:''}${['json','txt','checksums','mhl','html','log'].map(f=>`<button class="export" data-job="${esc(j.id)}" data-format="${f}">${({json:'JSON',txt:'TXT',checksums:'校验清单',mhl:'MHL',html:'打印 / PDF',log:'传输日志'})[f]}</button>`).join(' ')}</div>`
  }).join(''):'<div class="empty">还没有导入任务</div>';
- for(const j of state.jobs){const old=terminalStates.get(j.id);if(old&&old!==j.status&&!['queued','running','paused','pausing','stopping'].includes(j.status)&&$('completionSound').checked)playSound(j.status==='completed');terminalStates.set(j.id,j.status)}
+ const soundUpdate=jobSoundTracker.update(state.jobs);
+ if(soundUpdate.changed)sessionStorage.setItem('carddock-sound-states',JSON.stringify(soundUpdate.states));
+ if(soundUpdate.events.length&&$('completionSound').checked)playSound(!soundUpdate.events.some(e=>e.kind==='problem'));
+
 }
-async function poll(initial=false){state=await api('state');$('connection').textContent='● NAS 1.6.2 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');connectionFailures=0;connectionAlerted=false;$('connection').textContent='● NAS 1.6.3 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
@@ -87,10 +94,10 @@ $('authSubmit').onclick=async()=>{
  }finally{$('authSubmit').disabled=false;$('authSubmit').textContent=authInfo.mode==='password'?'登录':'连接'}
 };
 $('authToken').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('authSubmit').click()}};
-$('refresh').onclick=guard(devices);$('save').onclick=guard(async()=>{await save();notice(state.config.auto?'已保存自动模式：插卡后自动导入，无需打开网页；当前已接入的摄影卡也会开始导入。':'已保存手动模式：识别卡片后，点击开始拷贝才会运行。')});$('auto').onclick=guard(async()=>{await save({auto:!state.config.auto});notice(state.config.auto?'自动导入已开启：现有和新接入的已识别卡片将依次导入':'自动导入已暂停，正在进行的任务会继续')});$('start').onclick=guard(async()=>{if(!selected)throw Error('请先选择数据源');await save();await api('jobs',{source:selected});await poll()});
-$('addSource').onclick=guard(()=>openBrowser('source',async path=>{await api('config',{manual_sources:[...new Set([...(state.config.manual_sources||[]),path])]});await poll();await select(path)}));
+$('refresh').onclick=guard(devices);$('save').onclick=guard(async()=>{await save();notice(state.config.auto?'已保存自动模式：插卡后自动导入，无需打开网页；当前已接入的摄影卡也会开始导入。':'已保存手动模式：识别卡片后，点击开始拷贝才会运行。')});$('auto').onclick=guard(async()=>{await save({auto:!state.config.auto});notice(state.config.auto?'自动导入已开启：现有和新接入的已识别卡片将依次导入':'自动导入已暂停，正在进行的任务会继续')});$('start').onclick=guard(async()=>{try{const sources=copySources();if(!sources.length)throw Error('请先选择数据源');$('start').disabled=true;await save();await api('jobs/batch',{sources});await poll();if(sources.length>1)notice('已开始逐卡拷贝：每张卡完成拷贝和校验后执行下一张')}catch(e){if($('completionSound').checked)playSound(false);updateStartSelection();throw e}});
+$('addSource').onclick=guard(()=>openBrowser('source',async path=>{checkboxSelection=false;batchSelection.clear();await api('config',{manual_sources:[...new Set([...(state.config.manual_sources||[]),path])]});await poll();await select(path)}));
 $('choosePrimary').onclick=guard(()=>openBrowser('target',async p=>{$('primary').value=displayPath(p);renderCopyMode()},'选择主拷贝目录'));$('chooseBackup').onclick=guard(()=>openBrowser('target',async p=>{$('backups').value=displayPath(p);updateCopyFlow()},'选择备份拷贝目录'));$('closeBrowser').onclick=()=>$('browser').close();$('browseRoot').onclick=()=>browse();$('browseUp').onclick=()=>browse(browseParent);$('browsePath').oninput=()=>{browseCurrent='';$('browseUse').disabled=true;$('browseGo').disabled=!$('browsePath').value.trim()};$('browseGo').onclick=guard(()=>browse($('browsePath').value.trim()));$('browsePath').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!$('browseGo').disabled)$('browseGo').click()}};$('browseUse').onclick=guard(async()=>{const p=browseCurrent;if(!p||browseDisplay!==$('browsePath').value)throw Error('请先打开并确认目录');await browseCallback(p);$('browser').close()});
-guard(async()=>{authInfo=await api('auth');if(authInfo.mode==='password'){$('login').textContent=authInfo.enabled?'登录':'认证未启用';document.querySelector('.admin-link').hidden=true}else{document.querySelector('.admin-link').hidden=false;$('login').textContent='访问密钥';$('authTitle').textContent='连接旧版实例';$('authHint').textContent='此实例未设置新的密码认证参数，沿用原访问密钥。';$('authLabel').textContent='访问密钥'}try{await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password'||!authInfo.enabled;showInitialSetup()}catch(e){if(e.status===401&&authInfo.mode==='password'){$('authDialog').showModal();$('authToken').focus()}else throw e}})();setInterval(()=>poll().catch(e=>{$('connection').textContent='● 未连接';notice(e.message,true)}),2500);setInterval(()=>devices().catch(()=>{}),12000);
+guard(async()=>{authInfo=await api('auth');if(authInfo.mode==='password'){$('login').textContent=authInfo.enabled?'登录':'认证未启用';document.querySelector('.admin-link').hidden=true}else{document.querySelector('.admin-link').hidden=false;$('login').textContent='访问密钥';$('authTitle').textContent='连接旧版实例';$('authHint').textContent='此实例未设置新的密码认证参数，沿用原访问密钥。';$('authLabel').textContent='访问密钥'}try{await poll(true);await devices();$('logout').hidden=authInfo.mode!=='password'||!authInfo.enabled;showInitialSetup()}catch(e){if(e.status===401&&authInfo.mode==='password'){$('authDialog').showModal();$('authToken').focus()}else throw e}})();setInterval(()=>poll().catch(e=>{$('connection').textContent='● 未连接';notice(e.message,true);if(state.active&&++connectionFailures>=3&&!connectionAlerted){connectionAlerted=true;if($('completionSound').checked)playSound(false)}}),2500);setInterval(()=>devices().catch(()=>{}),12000);
 
 $('jobs').addEventListener('click',e=>{if(e.target.matches('.report'))guard(async()=>{const report=await api('report?id='+e.target.dataset.job);const u=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='carddock-'+report.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)})()});
 
@@ -99,7 +106,7 @@ $('jobs').addEventListener('click',e=>{if(e.target.matches('.task-control'))guar
 $('clearBackup').onclick=()=>{$('backups').value='';updateCopyFlow()};$('backups').oninput=updateCopyFlow;updateCopyFlow();
 
 $('previewRules').onclick=guard(async()=>{await save();if(selected)await select(selected)});
-$('enqueue').onclick=guard(async()=>{if(!selected)throw Error('请先选择数据源');await save();await api('jobs',{source:selected,enqueue:true});await poll();notice('已按当前规则加入队列；每项规则单独保存')});
+
 $('runQueue').onclick=guard(async()=>{await api('queue/start',{});await poll()});
 $('jobs').addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
@@ -116,8 +123,22 @@ $('presetExport').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.string
 $('presetImport').onchange=guard(async()=>{const f=$('presetImport').files[0];if(!f)return;if(f.size>65536)throw Error('设置文件过大');const c=JSON.parse(await f.text());await api('config',{...c,auto:false});await poll(true);notice('设置已导入，请核对来源和目标')});
 function theme(){const mode=$('theme').value,dark=mode==='dark'||mode==='system'&&matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=dark?'dark':'light';localStorage.setItem('carddock-theme',mode)}
 $('theme').value=localStorage.getItem('carddock-theme')||'light';$('theme').onchange=theme;theme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
-function playSound(ok=true){try{const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=ok?660:220;g.gain.setValueAtTime(.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.5);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.5);o.onended=()=>ctx.close()}catch(e){notice('浏览器未允许播放提示音')}}
-$('soundTest').onclick=()=>playSound();$('completionSound').checked=localStorage.getItem('carddock-sound')==='1';$('completionSound').onchange=()=>{localStorage.setItem('carddock-sound',$('completionSound').checked?'1':'0');if($('completionSound').checked)playSound()};
+function updateSoundStatus(){$('soundStatus').textContent=!$('completionSound').checked?'声音提示已关闭。':soundContext?.state==='running'?'声音已就绪；请保持本页打开，并确认系统未静音。':'点击任一试听按钮允许浏览器播放声音。'}
+function prepareSound(){
+ try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!soundContext||soundContext.state==='closed'){soundContext=new C();soundContext.onstatechange=updateSoundStatus;}if(soundContext.state==='suspended')soundContext.resume().catch(()=>{});return soundContext}catch(e){return null}
+}
+function playSound(ok=true){
+ const ctx=prepareSound();if(!ctx){notice('浏览器不支持声音提示，请检查声音权限');return}
+ if(ctx.state!=='running'){notice('请先点击页面或试听按钮，允许浏览器播放声音');return}
+ const notes=ok?[660,880]:[260,196,260],start=ctx.currentTime;
+ notes.forEach((frequency,i)=>{const at=start+i*.18,o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=frequency;g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime(.10,at+.015);g.gain.exponentialRampToValueAtTime(.0001,at+.14);o.connect(g);g.connect(ctx.destination);o.start(at);o.stop(at+.16);o.onended=()=>{o.disconnect();g.disconnect()}});
+}
+$('soundTest').onclick=()=>{prepareSound();if(soundContext)soundContext.resume().then(()=>playSound(true))};
+$('soundErrorTest').onclick=()=>{prepareSound();if(soundContext)soundContext.resume().then(()=>playSound(false))};
+$('completionSound').checked=localStorage.getItem('carddock-sound')!=='0';updateSoundStatus();
+$('completionSound').onchange=()=>{localStorage.setItem('carddock-sound',$('completionSound').checked?'1':'0');updateSoundStatus();if($('completionSound').checked){prepareSound();if(soundContext)soundContext.resume().then(()=>playSound(true))}};
+for(const event of ['pointerdown','keydown'])document.addEventListener(event,()=>{if($('completionSound').checked)prepareSound()},{passive:true});
+
 
 $('newFolder').onclick=async()=>{try{if(!browseCurrent||browseKind!=='target')throw Error('请先点击下方的可写位置');const r=await api('mkdir',{parent:browseCurrent,name:$('newFolderName').value});$('newFolderName').value='';await browse(r.path)}catch(e){$('browseError').textContent=e.message}};
 
@@ -154,6 +175,7 @@ function setView(view){
  const panels={ingest:'ingestPanel',queue:'historyPanel',history:'historyPanel',workflow:'workflowPanel',preferences:'preferencesPanel',help:'helpPanel'};
  for(const id of new Set(Object.values(panels)))$(id).hidden=id!==panels[view];
  document.querySelectorAll('.workspace-nav [data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+ if(view==='workflow')queueNamingPreview();
  if(view==='queue'||view==='history'){$('historyTitle').textContent=view==='queue'?'任务队列':'拷贝记录';$('runQueue').hidden=view==='history';renderJobs()}
 }
 function renderCopyMode(){
@@ -168,9 +190,10 @@ function renderCopyMode(){
  updateFooter();
 }
 function updateFooter(){
+ updateStartSelection();
  $('footerCounts').textContent=`${deviceList.length} 个数据源 · ${$('primary').value.trim()?1+Number(!!$('backups').value.trim()):0} 个拷贝目标`;
 }
-function updateBatch(){$('batchQueue').textContent='批量排队 · '+batchSelection.size;$('batchQueue').disabled=!batchSelection.size||!!state.active}
+function updateBatch(){$('batchQueue').textContent='批量排队 · '+batchSelection.size;$('batchQueue').disabled=!batchSelection.size||!!state.active;updateStartSelection()}
 function liveJob(){return (state.jobs||[]).find(j=>['running','paused','pausing','stopping'].includes(j.status))||(state.jobs||[])[0]}
 function renderLiveProgress(){
  const j=liveJob();if(!j){$('liveControls').hidden=true;return}
@@ -189,10 +212,33 @@ $('verify').onchange=renderCopyMode;$('primary').oninput=renderCopyMode;
 document.querySelectorAll('[data-copy-mode]').forEach(b=>b.onclick=()=>{if(b.dataset.copyMode==='dual'){if($('verify').value==='quick')$('verify').value='sha256';if(!$('backups').value.trim())$('chooseBackup').click()}else if(b.dataset.copyMode==='quick')$('verify').value='quick';else if($('verify').value==='quick')$('verify').value='sha256';renderCopyMode()});
 $('targetAdd').onclick=()=>$('chooseBackup').click();$('addSourceTile').onclick=()=>$('addSource').click();$('emptyChooseSource').onclick=()=>$('addSource').click();
 $('saveTargets').onclick=()=>$('save').click();
-$('selectAll').onclick=()=>{deviceList.forEach(d=>batchSelection.add(d.path));devices().catch(e=>notice(e.message,true))};
-$('clearSelection').onclick=()=>{batchSelection.clear();devices().catch(e=>notice(e.message,true))};
-$('batchQueue').onclick=guard(async()=>{await save();for(const source of [...batchSelection])await api('jobs',{source,enqueue:true});batchSelection.clear();await devices();await poll();setView('queue');notice('所选数据源已加入队列；空闲时立即开始，其余任务依次执行')});
+$('selectAll').onclick=()=>{checkboxSelection=true;deviceList.forEach(d=>batchSelection.add(d.path));devices().catch(e=>notice(e.message,true))};
+$('clearSelection').onclick=()=>{checkboxSelection=true;batchSelection.clear();selected='';previewData=null;$('selected').textContent='尚未选择数据源';$('summaryBytes').textContent='—';$('summaryCount').textContent='—';$('camera').textContent='未选择';$('preview').innerHTML='<div class="empty">从左侧选择数据源，查看素材并设置拷贝目标。</div>';queueNamingPreview();devices().catch(e=>notice(e.message,true))};
+$('batchQueue').onclick=guard(async()=>{await save();await api('jobs/batch',{sources:copySources(),enqueue:true});batchSelection.clear();await devices();await poll();setView('queue');notice('所选数据源已加入队列；空闲时立即开始，其余任务依次执行')});
 for(const id of ['livePause','liveStop'])$(id).onclick=guard(async()=>{const j=liveJob();if(!j)return;const action=id==='liveStop'?'stop':['paused','pausing'].includes(j.status)?'resume':'pause';await api('control',{id:j.id,action});if(action==='stop')setMode(false);await poll()});
 renderCopyMode();
 
 $('saveAutoMode').onclick=guard(async()=>{await save();notice(state.config.auto?'已保存自动模式，将导入当前与新接入的已识别存储卡':'已保存手动模式，点击开始拷贝才会运行')});
+
+const folderLayouts={combined:'{date}{project}{device}机位{camera}卡号{card}',layered:'{date}/{project}/机位{camera}/卡号{card}',dateProject:'{date}/{project}',source:'{date}/{project}/{camera}/{card}/{source}'};
+function syncFolderLayout(){$('folderLayout').value=Object.keys(folderLayouts).find(k=>folderLayouts[k]===$('directory_template').value)||'custom'}
+function queueNamingPreview(){
+ clearTimeout(namingTimer);const sequence=++namingSequence;
+ $('namingPreview').classList.remove('error');
+ if(!selected){$('namingPreview').textContent='选择数据源后显示真实路径预览';return}
+ $('namingPreview').textContent='正在更新路径预览…';
+ const source=selected,options={project:$('project').value.trim(),camera:$('camera_name').value.trim(),card:$('card').value.trim(),directory_template:$('directory_template').value.trim(),filename_template:$('filename_template').value.trim()};
+ namingTimer=setTimeout(async()=>{try{const result=await api('naming-preview',{source,options});if(sequence!==namingSequence)return;$('namingPreview').textContent=result.namespace}catch(e){if(sequence!==namingSequence)return;$('namingPreview').textContent=e.message;$('namingPreview').classList.add('error')}},300);
+}
+$('folderLayout').onchange=()=>{const template=folderLayouts[$('folderLayout').value];if(template)$('directory_template').value=template;else $('directory_template').focus();queueNamingPreview()};
+for(const id of ['project','camera_name','card','filename_template'])$(id).addEventListener('input',queueNamingPreview);
+$('directory_template').addEventListener('input',()=>{syncFolderLayout();queueNamingPreview()});
+$('conflict').onchange=()=>{$('conflictNote').textContent=$('conflict').value==='skip'?'同名不同内容会跳过并记录，任务不表示全部素材已备份。':$('conflict').value==='overwrite'?'同名不同内容将覆盖目标副本，请核对拷贝目标。':'全景、序列及代理保留原名；遇到同名不同内容时停止该任务，防止破坏拍摄组。'};
+
+function copySources(){return batchSelection.size||checkboxSelection?deviceList.filter(d=>batchSelection.has(d.path)).map(d=>d.path):selected?[selected]:[]}
+function updateStartSelection(){
+ const sources=copySources(),count=sources.length;
+ $('start').disabled=!!state.active||!count||!$('primary').value.trim();
+ $('start').textContent=state.active?'拷贝进行中':count>1?'开始拷贝（'+count+'）':'开始拷贝 →';
+ $('selected').textContent=count>1?count+' 个数据源 · 按列表顺序逐个拷贝':count?displayPath(sources[0]):'尚未选择数据源';
+}
