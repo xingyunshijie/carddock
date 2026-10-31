@@ -124,6 +124,10 @@ def main():
         raise ValueError('项目名称无效')
     shares = discover(a.config or [x for x in CONFIGS if Path(x).is_file()])
     base = base_configuration()
+    uid = int(os.getenv('SUDO_UID', str(os.getuid())))
+    gid = int(os.getenv('SUDO_GID', str(os.getgid())))
+    if uid > 0 and gid > 0:
+        base['services']['carddock']['environment'].update(PUID=str(uid), PGID=str(gid))
     if a.base:
         base = json.loads(subprocess.check_output(['docker', 'compose', '-f', str(a.base.resolve()), 'config', '--format', 'json'], text=True))
     elif a.apply:

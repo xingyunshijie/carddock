@@ -13,7 +13,7 @@ def shared_roots(directory):
     for entry in sorted(parent.iterdir(), key=lambda p: p.name.casefold()):
         if entry.name.startswith(('.', '@')) or entry.is_symlink():
             continue
-        if entry.is_dir() and os.access(entry, os.R_OK | os.X_OK):
+        if entry.is_dir():
             roots.append(entry.resolve())
     return roots
 

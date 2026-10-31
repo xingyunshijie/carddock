@@ -36,10 +36,13 @@ def browse_directories(value, roots, labels=None):
             if d.is_symlink() or not d.is_dir(): continue
             if value and (d.name.startswith(('.', '@')) or d.name in ('lost+found', '$RECYCLE.BIN', 'System Volume Information')): continue
             d = safe_path(str(d), roots)
-            entry = {'path': str(d), 'name': labels.get(str(d), d.name), 'writable': os.access(d, os.W_OK | os.X_OK)}
+            entry = {'path': str(d), 'name': labels.get(str(d), d.name), 'writable': os.access(d, os.W_OK | os.X_OK), 'readable': os.access(d, os.R_OK | os.X_OK)}
             if not value:
-                v = os.statvfs(d)
-                entry.update(total=v.f_blocks*v.f_frsize, free=v.f_bavail*v.f_frsize)
+                try:
+                    v = os.statvfs(d)
+                    entry.update(total=v.f_blocks*v.f_frsize, free=v.f_bavail*v.f_frsize)
+                except OSError:
+                    pass
             entries.append(entry)
         except (OSError, ValueError):
             continue
