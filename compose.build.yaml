@@ -1,7 +1,7 @@
 services:
   carddock:
     build: .
-    image: carddock:1.5.2
+    image: carddock:1.6.0
     container_name: carddock
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

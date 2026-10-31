@@ -2,7 +2,7 @@ import os, json, threading, hmac, ssl, secrets, time
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlsplit, parse_qs
-from core import Engine, browse_directories
+from core import Engine, browse_directories, mount_candidates
 from reports import export
 from rules import component
 from core import safe_path
@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/api/state':
                 for job in list(engine.jobs.values()):
                     if job['status'] in ('running','paused','pausing','stopping'): engine.metrics(job)
-                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.5.2','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
+                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.6.0','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
             elif u.path=='/api/report':
                 ident=q.get('id',[''])[0]
                 with engine.lock:
@@ -81,6 +81,12 @@ class Handler(BaseHTTPRequestHandler):
                 labels=json.loads(os.getenv('TARGET_LABELS','{}'))
                 # Keep historical/default paths valid, but list real NAS shares first.
                 listing=browse_directories(path,roots,labels)
+                if not path and q.get('kind',['target'])[0]=='source':
+                    cards=mount_candidates(engine.auto_sources)
+                    card_paths=[Path(d['path']) for d in cards]
+                    if card_paths:
+                        card_labels={d['path']:'存储卡 · '+d['name'] for d in cards}
+                        listing=browse_directories('',card_paths+list(roots),{**labels,**card_labels})
                 if not path and q.get('kind',['target'])[0]=='target' and shares:
                     listing=browse_directories('',shares,labels)
                 listing['shared_folders']=bool(shares)

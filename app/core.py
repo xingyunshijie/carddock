@@ -313,13 +313,19 @@ class Engine:
         cards = mount_candidates(self.auto_sources)
         for p in self.config['manual_sources']:
             if Path(p).is_dir() and not any(d['path']==p for d in cards): cards.append({'path':p,'identity':'manual:'+p,'name':Path(p).name,'external':False})
+        available=[]
         for d in cards:
-            self.name_reader(d)
-            key=d['identity']
-            if key not in self.cache:
-                self.cache[key]={'brand':'','model':'','evidence':'任务已终止，等待拔卡或手动重新开始'} if d['path'] in self.blocked_sources else detect(Path(d['path']))
-            d.update(self.cache[key]); v=os.statvfs(d['path']); d.update(total=v.f_blocks*v.f_frsize,free=v.f_bavail*v.f_frsize)
-        return cards
+            try:
+                self.name_reader(d)
+                key=d['identity']
+                if key not in self.cache:
+                    self.cache[key]={'brand':'','model':'','evidence':'任务已终止，等待拔卡或手动重新开始'} if d['path'] in self.blocked_sources else detect(Path(d['path']))
+                d.update(self.cache[key]); v=os.statvfs(d['path']); d.update(total=v.f_blocks*v.f_frsize,free=v.f_bavail*v.f_frsize)
+                available.append(d)
+            except OSError:
+                # Ejection between mount discovery and inspection must not hide other cards.
+                self.cache.pop(d['identity'],None)
+        return available
     def preview(self,value):
         with self.io_lock:
             if any(inside(Path(value).resolve(),Path(p)) for p in self.blocked_sources): raise ValueError('此卡已停止访问；重新开始任务后可预览')

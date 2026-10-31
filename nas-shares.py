@@ -69,7 +69,15 @@ def configuration(base, shares, directory=None):
     def target(v):
         return v.get('target', '') if isinstance(v, dict) else v.split(':')[1]
     service['volumes'] = [v for v in volumes if not target(v).startswith('/shares/')]
+    reader_mounts = [v for v in service['volumes'] if isinstance(v, dict) and v.get('target','').startswith('/readers/') and v.get('read_only')]
     for name, source in sorted(shares.items(), key=lambda v: v[0].casefold()):
+        # Some NAS systems advertise inserted cards as temporary Samba shares.
+        # Keep those under source-only mounts instead of granting writable targets.
+        reader = next((v for v in reader_mounts if source == Path(v['source']) or Path(v['source']) in source.parents), None)
+        if reader:
+            suffix = source.relative_to(Path(reader['source'])).as_posix()
+            labels[reader['target'] + ('/' + suffix if suffix != '.' else '')] = name
+            continue
         key = name if re.fullmatch(r'[^/\\:\x00-\x1f]+', name) and not name.startswith(('.', '@')) else 'share-' + hashlib.sha256(name.encode()).hexdigest()[:12]
         destination = '/shares/' + key
         labels[destination] = name
@@ -88,6 +96,69 @@ def configuration(base, shares, directory=None):
             if not source.startswith(('/', '.')): continue
         paths[target] = str((directory / source).resolve())
     env['HOST_PATH_MAP'] = json.dumps(paths, ensure_ascii=False)
+    return result
+
+
+def discover_readers(explicit=(), mountinfo='/proc/self/mountinfo', sysroot='/sys'):
+    """Grant USB mount parents, never /mnt, a storage pool or the host root."""
+    known = [Path(p) for p in ('/mnt/@usb', '/share/external', '/media', '/run/media', '/mnt/usb', '/mnt/USB')]
+    known += list(Path('/').glob('volumeUSB*'))
+    roots = [p.resolve() for p in known if p.is_dir() and not p.is_symlink()]
+    for value in explicit:
+        p = Path(value)
+        if not p.is_absolute() or p.is_symlink() or not p.is_dir():
+            raise ValueError('读卡器父目录不存在或无效：' + str(value))
+        p = p.resolve()
+        if len(p.parts) < 3 or any(p == b or b in p.parents for b in BLOCKED):
+            raise ValueError('不能将系统或存储池根目录作为读卡器父目录')
+        roots.append(p)
+    # Nonstandard NAS: map only mounted physical removable media itself.
+    def disks(dev, seen=None):
+        seen = set() if seen is None else seen
+        dev = dev.resolve()
+        if dev in seen: return set()
+        seen.add(dev)
+        if (dev/'partition').exists(): dev = dev.parent
+        slaves = list((dev/'slaves').iterdir()) if (dev/'slaves').is_dir() else []
+        return set().union(*(disks(p, seen) for p in slaves)) if slaves else {dev}
+    try: lines = Path(mountinfo).read_text().splitlines()
+    except OSError: lines = []
+    system = set()
+    for line in lines:
+        fields = line.split(' - ', 1)[0].split()
+        if fields[4] in ('/', '/boot', '/boot/efi', '/usr', '/var', '/etc'):
+            system |= disks(Path(sysroot)/'dev/block'/fields[2])
+    for line in lines:
+        left, right = line.split(' - ', 1)
+        fields = left.split()
+        if fields[3] != '/' or right.split()[0] in ('tmpfs','overlay','proc','sysfs','nfs','cifs','iso9660','udf'): continue
+        dev = (Path(sysroot)/'dev/block'/fields[2]).resolve()
+        if not dev.exists() or any(p.startswith(('loop','ram','dm-','md')) for p in dev.parts): continue
+        removable = any((p/'removable').is_file() and (p/'removable').read_text().strip() == '1' for p in (dev,dev.parent))
+        if not ('usb' in str(dev).lower() or removable or any(p.startswith('mmc') for p in dev.parts)): continue
+        if disks(dev) & system: continue
+        path = Path(re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1],8)), fields[4])).resolve()
+        if path.is_dir() and len(path.parts) >= 3 and not any(path == r or r in path.parents for r in roots):
+            roots.append(path)
+    return sorted(set(roots), key=str)
+
+
+def reader_configuration(base, roots):
+    result = json.loads(json.dumps(base))
+    service = result['services']['carddock']
+    env = service.setdefault('environment', {})
+    volumes = service.setdefault('volumes', [])
+    labels = json.loads(env.get('TARGET_LABELS', '{}'))
+    sources = [p for p in env.get('SOURCE_ROOTS', '/sources').split(':') if p]
+    for root in roots:
+        destination = '/readers/' + hashlib.sha256(str(root).encode()).hexdigest()[:12]
+        if not any((v.get('target') if isinstance(v, dict) else v.split(':')[1]) == destination for v in volumes):
+            volumes.append({'type': 'bind', 'source': str(root), 'target': destination,
+                            'read_only': True, 'bind': {'create_host_path': False, 'propagation': 'rslave'}})
+        if destination not in sources: sources.append(destination)
+        labels[destination] = '读卡器与外接存储 · ' + root.name
+    env['SOURCE_ROOTS'] = ':'.join(sources)
+    env['TARGET_LABELS'] = json.dumps(labels, ensure_ascii=False)
     return result
 
 
@@ -124,6 +195,7 @@ def write_private(path, data):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', action='append', help='有效的 NAS Samba 配置，可重复')
+    p.add_argument('--reader-root', action='append', default=[], help='此 NAS 的外接存储父目录，可重复；自动识别常见路径')
     p.add_argument('--base', type=Path, help='保留现有项目的端口、密码和目录映射')
     p.add_argument('--output', type=Path, default=Path('compose.shared.yaml'))
     p.add_argument('--apply', action='store_true', help='检查后部署项目；须先完成所有传输')
@@ -148,7 +220,9 @@ def main():
     output = a.output.resolve()
     if output.exists():
         raise ValueError('输出配置已存在；请使用新的 --output 文件名，避免覆盖旧配置')
-    write_private(output, configuration(base, shares, output.parent))
+    readers = discover_readers(a.reader_root)
+    write_private(output, configuration(reader_configuration(base, readers), shares, output.parent))
+    print('读卡器访问位置：' + ('、'.join(str(p) for p in readers) if readers else '未发现；连接读卡器后重新运行，或用 --reader-root 指定父目录'))
     print('已识别并生成共享目录映射：' + '、'.join(shares))
     print('配置文件：' + str(output))
     if a.apply:
