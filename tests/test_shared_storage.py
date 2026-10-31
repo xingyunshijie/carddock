@@ -53,6 +53,18 @@ class SharedStorageTest(unittest.TestCase):
         after = share.stat()
         self.assertEqual((before.st_uid, before.st_gid, before.st_mode), (after.st_uid, after.st_gid, after.st_mode))
 
+    def test_existing_installs_inherit_nas_group_only_when_not_explicit(self):
+        base = installer.base_configuration()
+        installer.installation_identity(base, 1026, 101)
+        env = base['services']['carddock']['environment']
+        self.assertEqual((env['PUID'], env['PGID']), ('1026', '101'))
+        installer.installation_identity(base, 2000, 2000)
+        self.assertEqual((env['PUID'], env['PGID']), ('1026', '101'))
+        explicit = installer.base_configuration()
+        explicit['services']['carddock']['user'] = '3000:4000'
+        installer.installation_identity(explicit, 1026, 101)
+        self.assertNotIn('PGID', explicit['services']['carddock']['environment'])
+
     def test_existing_password_dollar_signs_survive_compose_serialization(self):
         target = self.root/'compose.shared.yaml'
         installer.write_private(target, {'services': {'carddock': {'environment': {'AUTHENTICATION_PASSWORD': 'Test$Password'}}}})

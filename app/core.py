@@ -38,6 +38,11 @@ def browse_directories(value, roots, labels=None):
             d = safe_path(str(d), roots)
             entry = {'path': str(d), 'name': labels.get(str(d), d.name), 'writable': os.access(d, os.W_OK | os.X_OK), 'readable': os.access(d, os.R_OK | os.X_OK)}
             if not value:
+                if entry['readable']:
+                    try:
+                        with os.scandir(d) as probe: next(probe, None)
+                    except OSError:
+                        entry['readable'] = False
                 try:
                     v = os.statvfs(d)
                     entry.update(total=v.f_blocks*v.f_frsize, free=v.f_bavail*v.f_frsize)

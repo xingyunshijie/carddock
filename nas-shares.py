@@ -91,6 +91,15 @@ def configuration(base, shares, directory=None):
     return result
 
 
+def installation_identity(base, uid, gid):
+    service = base['services']['carddock']
+    if uid > 0 and gid > 0 and service.get('user') in (None, '', '0', '0:0', 'root'):
+        env = service.setdefault('environment', {})
+        env.setdefault('PUID', str(uid))
+        env.setdefault('PGID', str(gid))
+    return base
+
+
 def write_private(path, data):
     if path.is_symlink():
         raise ValueError('拒绝写入符号链接')
@@ -126,8 +135,6 @@ def main():
     base = base_configuration()
     uid = int(os.getenv('SUDO_UID', str(os.getuid())))
     gid = int(os.getenv('SUDO_GID', str(os.getgid())))
-    if uid > 0 and gid > 0:
-        base['services']['carddock']['environment'].update(PUID=str(uid), PGID=str(gid))
     if a.base:
         base = json.loads(subprocess.check_output(['docker', 'compose', '-p', a.project, '-f', str(a.base.resolve()), 'config', '--format', 'json'], text=True))
     elif a.apply:
@@ -137,6 +144,7 @@ def main():
         if getpass.getpass('再次输入登录密码：') != password:
             raise ValueError('两次输入不一致')
         base['services']['carddock']['environment']['AUTHENTICATION_PASSWORD'] = password
+    base = installation_identity(base, uid, gid)
     output = a.output.resolve()
     if output.exists():
         raise ValueError('输出配置已存在；请使用新的 --output 文件名，避免覆盖旧配置')
