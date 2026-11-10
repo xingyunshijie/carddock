@@ -28,10 +28,10 @@ async function devices(){
  const sequence=++deviceSequence,found=await api('devices');if(sequence!==deviceSequence)return;const list=found.filter(d=>d.external===true);
  deviceList=list;for(const path of [...batchSelection])if(!list.some(d=>d.path===path))batchSelection.delete(path);
  $('sourceStatus').textContent=list.some(d=>d.external)?`已识别 ${list.filter(d=>d.external).length} 个外接存储`:'未发现外接存储，可刷新或手动添加';
- $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 30 36" aria-hidden="true"><path d="M10 2h15a3 3 0 0 1 3 3v27a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V10l8-8Z"/><path d="M12 5v9m4-9v9m4-9v9m4-9v9"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span></button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
+ $('devices').innerHTML=list.map((d,i)=>`<div class="source-row"><input type="checkbox" data-batch="${i}" aria-label="排队选择 ${esc(d.display_name||d.name)}" ${batchSelection.has(d.path)?'checked':''}><button class="card ${selected===d.path?'selected':''}" data-i="${i}" aria-pressed="${selected===d.path}"><b><svg class="device-icon" viewBox="0 0 30 36" aria-hidden="true"><path d="M10 2h15a3 3 0 0 1 3 3v27a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V10l8-8Z"/><path d="M12 5v9m4-9v9m4-9v9m4-9v9"/></svg>${esc(d.external?sourceBrandLabel(d):d.name)}</b><span>${d.external?'外接存储':'素材目录'} · ${size(d.total)}</span><span>${esc(d.display_name||d.evidence)}</span>${!d.external&&d.brand?`<span>${esc(sourceBrandLabel(d))}</span>`:''}${d.model?`<span class="device-model">${esc(d.model)}</span>`:''}${d.inferred&&d.brand?'<span class="device-evidence">根据目录 / 格式识别</span>':''}<span class="device-path">${esc(displayPath(d.path))}</span>${d.recent_copy_match?`<span class="safe">此卡内容已拷贝${d.recent_copy_scoped?'（按上次拷贝范围）':''}${d.recent_copy_sampled?' · 快速核对一致':''}</span>`:''}</button></div>`).join('')||'<p class="hint">请先在 NAS 文件管理器确认存储卡已挂载。</p>';
  $('devices').querySelectorAll('button').forEach(b=>b.onclick=guard(()=>{const path=list[Number(b.dataset.i)].path;if(batchSelection.size<=1){checkboxSelection=true;batchSelection.clear();batchSelection.add(path)}setView('ingest');return select(path)}));
  $('devices').querySelectorAll('[data-batch]').forEach(c=>c.onchange=()=>{checkboxSelection=true;const path=list[Number(c.dataset.batch)].path;c.checked?batchSelection.add(path):batchSelection.delete(path);updateBatch()});
- updateBatch();updateFooter();
+ updateBatch();updateFooter();$('liveEject').hidden=!canPrepareEject(liveJob());
 }
 async function select(path){
  const sequence=++previewSequence;selected=path;$('selected').textContent=displayPath(path);$('preview').innerHTML='<div class="empty">正在扫描文件…</div>';
@@ -54,14 +54,14 @@ function renderJobs(){
  $('jobs').innerHTML=shown.length?shown.map(j=>{
   const active=['queued','running','pausing','paused','stopping'].includes(j.status),fraction=j.stage_fraction??(j.total?j.done/j.total:0);
   const stage=j.stage==='copy'?'拷贝':j.stage==='verify'?'校验':j.stage==='size'?'大小复核':j.status==='completed'?'完成':'处理';
-  return `<div class="job"><div class="job-top"><b>${esc(j.source.split('/').pop())} <span class="muted">${esc(j.id)}</span></b><span class="${j.status==='failed'?'error':''}">${esc(j.phase)}</span></div><div class="progress"><div style="width:${Math.max(0,Math.min(100,fraction*100))}%"></div></div><p><strong>${stage} ${active?(j.stage_done??j.done):j.done} / ${active?(j.stage_total??j.total):j.total}</strong> · 当前阶段 ${Math.round(fraction*100)}% · 总体已校验 ${j.done} / ${j.total} · ${esc(j.options.verify.toUpperCase())}</p><p class="path">${esc(j.current_file||'')}</p><p>实际写入 ${size(j.transferred_bytes||0)} · ${j.status==='paused'?'已暂停':`${!active?'已结束':j.stage==='copy'?'实时 '+size(j.realtime_bps||0)+'/s':'校验中'} · 平均 ${size(j.speed_bps||0)}/s`} · 已用 ${timeLabel(j.elapsed_seconds||0)}${j.eta_seconds!=null?' · 预计剩余 '+timeLabel(j.eta_seconds)+'（不含待校验）':''} · 新拷贝 ${j.copied} · 复核跳过 ${j.skipped}</p><p>${Object.entries(j.destinations||{}).map(([p,s])=>esc(p)+'：'+({pending:'等待',running:'处理中',verified:'✓ 已校验',failed:'失败',cancelled:'已终止','skipped-conflict':'有未备份项'}[s]||s)).join('<br>')}</p>${j.primary_verified&&active?'<p class="safe">主拷贝所选范围已复核，正在处理后续任务；请等待全部副本完成。</p>':''}${j.safe_to_remove?'<p class="safe">✓ 全部目标内容校验完成；核对报告后，在 NAS 系统中安全弹出。</p>':''}${j.error?`<p class="error">${esc(j.error)}</p>`:''}${['running','pausing','paused'].includes(j.status)?`<button class="task-control" data-job="${esc(j.id)}" data-action="${['paused','pausing'].includes(j.status)?'resume':'pause'}">${['paused','pausing'].includes(j.status)?'继续':'暂停'}</button> <button class="task-control" data-job="${esc(j.id)}" data-action="stop">终止并释放文件</button> `:''}${!active?`<button class="retry" data-job="${esc(j.id)}">按原规则重试</button> `:''}${!active||j.status==='queued'?`<button class="remove" data-job="${esc(j.id)}">删除队列记录</button> `:''}${['json','txt','checksums','mhl','html','log'].map(f=>`<button class="export" data-job="${esc(j.id)}" data-format="${f}">${({json:'JSON',txt:'TXT',checksums:'校验清单',mhl:'MHL',html:'打印 / PDF',log:'传输日志'})[f]}</button>`).join(' ')}</div>`
+  return `<div class="job"><div class="job-top"><b>${esc(j.source.split('/').pop())} <span class="muted">${esc(j.id)}</span></b><span class="${j.status==='failed'?'error':''}">${esc(j.phase)}</span></div><div class="progress"><div style="width:${Math.max(0,Math.min(100,fraction*100))}%"></div></div><p><strong>${stage} ${active?(j.stage_done??j.done):j.done} / ${active?(j.stage_total??j.total):j.total}</strong> · 当前阶段 ${Math.round(fraction*100)}% · 总体已校验 ${j.done} / ${j.total} · ${esc(j.options.verify.toUpperCase())}</p><p class="path">${esc(j.current_file||'')}</p><p>实际写入 ${size(j.transferred_bytes||0)} · ${j.status==='paused'?'已暂停':`${!active?'已结束':j.stage==='copy'?'实时 '+size(j.realtime_bps||0)+'/s':'校验中'} · 平均 ${size(j.speed_bps||0)}/s`} · 已用 ${timeLabel(j.elapsed_seconds||0)}${j.eta_seconds!=null?' · 预计剩余 '+timeLabel(j.eta_seconds)+'（不含待校验）':''} · 新拷贝 ${j.copied} · 复核跳过 ${j.skipped}</p><p>${Object.entries(j.destinations||{}).map(([p,s])=>esc(p)+'：'+({pending:'等待',running:'处理中',verified:'✓ 已校验',failed:'失败',cancelled:'已终止','skipped-conflict':'有未备份项'}[s]||s)).join('<br>')}</p>${j.primary_verified&&active?'<p class="safe">主拷贝所选范围已复核，正在处理后续任务；请等待全部副本完成。</p>':''}${j.safe_to_remove?'<p class="safe">✓ 全部目标内容校验完成；核对报告后，在 NAS 系统中安全弹出。</p>':''}${j.error?`<p class="error">${esc(j.error)}</p>`:''}${['running','pausing','paused'].includes(j.status)?`<button class="task-control" data-job="${esc(j.id)}" data-action="${['paused','pausing'].includes(j.status)?'resume':'pause'}">${['paused','pausing'].includes(j.status)?'继续':'暂停'}</button> <button class="task-control" data-job="${esc(j.id)}" data-action="stop">终止并释放文件</button> `:''}${canPrepareEject(j)?`<button class="prepare-eject" data-job="${esc(j.id)}">推出卡</button> `:''}${!active?`<button class="retry" data-job="${esc(j.id)}">按原规则重试</button> `:''}${!active||j.status==='queued'?`<button class="remove" data-job="${esc(j.id)}">删除队列记录</button> `:''}${['json','txt','checksums','mhl','html','log'].map(f=>`<button class="export" data-job="${esc(j.id)}" data-format="${f}">${({json:'JSON',txt:'TXT',checksums:'校验清单',mhl:'MHL',html:'打印 / PDF',log:'传输日志'})[f]}</button>`).join(' ')}</div>`
  }).join(''):'<div class="empty">还没有导入任务</div>';
  const soundUpdate=jobSoundTracker.update(state.jobs);
  if(soundUpdate.changed)sessionStorage.setItem('carddock-sound-states',JSON.stringify(soundUpdate.states));
  if(soundUpdate.events.length&&$('completionSound').checked)playSound(!soundUpdate.events.some(e=>e.kind==='problem'));
 
 }
-async function poll(initial=false){state=await api('state');connectionFailures=0;connectionAlerted=false;$('connection').textContent='● NAS 1.6.3 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');connectionFailures=0;connectionAlerted=false;$('connection').textContent='● NAS 1.6.4 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{
@@ -110,6 +110,7 @@ $('previewRules').onclick=guard(async()=>{await save();if(selected)await select(
 $('runQueue').onclick=guard(async()=>{await api('queue/start',{});await poll()});
 $('jobs').addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
+ if(b.matches('.prepare-eject'))guard(()=>prepareEject((state.jobs||[]).find(j=>j.id===b.dataset.job)))();
  if(b.matches('.retry'))guard(async()=>{await api('retry',{id:b.dataset.job});await poll()})();
  if(b.matches('.remove'))guard(async()=>{await api('remove',{id:b.dataset.job});await poll();notice('已删除记录，素材与已导出报告保留')})();
  if(b.matches('.export'))guard(async()=>{const r=await fetch('/api/report?id='+encodeURIComponent(b.dataset.job)+'&format='+b.dataset.format,{headers:{Authorization:'Bearer '+(sessionStorage.getItem('token')||'')}});if(!r.ok){const j=await r.json();throw Error(j.error)}const blob=await r.blob(),url=URL.createObjectURL(blob);if(b.dataset.format==='html'){const w=window.open(url,'_blank');if(!w)notice('浏览器阻止弹窗，请允许后重试');setTimeout(()=>URL.revokeObjectURL(url),60000)}else{const a=document.createElement('a');a.href=url;a.download='carddock-'+b.dataset.job+'.'+({checksums:'checksums.txt'}[b.dataset.format]||b.dataset.format);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}})();
@@ -195,8 +196,19 @@ function updateFooter(){
 }
 function updateBatch(){$('batchQueue').textContent='批量排队 · '+batchSelection.size;$('batchQueue').disabled=!batchSelection.size||!!state.active;updateStartSelection()}
 function liveJob(){return (state.jobs||[]).find(j=>['running','paused','pausing','stopping'].includes(j.status))||(state.jobs||[])[0]}
+function canPrepareEject(j){
+ return !!j&&j.status==='completed'&&j.io_released&&j.selected_scope_verified&&!state.active&&
+    !(state.jobs||[]).some(task=>task.status==='queued')&&
+    deviceList.some(d=>d.path===j.source||j.source.startsWith(d.path+'/'));
+}
+async function prepareEject(j){
+ if(!canPrepareEject(j))return;
+ const card=await api('prepare-eject',{id:j.id});
+ notice('已释放此卡。请在 NAS 的外接设备管理中弹出 '+displayPath(card.path)+'，等待 NAS 确认后再拔卡。');
+}
+$('liveEject').onclick=guard(()=>prepareEject(liveJob()));
 function renderLiveProgress(){
- const j=liveJob();if(!j){$('liveControls').hidden=true;return}
+ const j=liveJob();$('liveEject').hidden=!canPrepareEject(j);if(!j){$('liveControls').hidden=true;return}
  const active=['running','paused','pausing','stopping'].includes(j.status),fraction=j.stage_fraction??(j.total?j.done/j.total:0),percent=Math.max(0,Math.min(100,Math.round(fraction*100)));
  $('liveStage').textContent=j.phase||j.status;$('livePercent').textContent=percent+'%';$('liveBar').style.width=percent+'%';$('liveBar').parentElement.setAttribute('aria-valuenow',percent);
  $('liveLabel').textContent=j.stage==='verify'?'校验进度':j.stage==='copy'?'拷贝进度':'任务进度';
@@ -239,6 +251,6 @@ function copySources(){return batchSelection.size||checkboxSelection?deviceList.
 function updateStartSelection(){
  const sources=copySources(),count=sources.length;
  $('start').disabled=!!state.active||!count||!$('primary').value.trim();
- $('start').textContent=state.active?'拷贝进行中':count>1?'开始拷贝（'+count+'）':'开始拷贝 →';
+ $('start').textContent=state.active?'拷贝进行中':count>1?'开始拷贝（'+count+'）':deviceList.some(d=>d.path===sources[0]&&d.recent_copy_match)?'重新拷贝':'开始拷贝 →';
  $('selected').textContent=count>1?count+' 个数据源 · 按列表顺序逐个拷贝':count?displayPath(sources[0]):'尚未选择数据源';
 }

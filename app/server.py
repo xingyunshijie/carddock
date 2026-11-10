@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/api/state':
                 for job in list(engine.jobs.values()):
                     if job['status'] in ('running','paused','pausing','stopping'): engine.metrics(job)
-                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.6.3','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
+                with engine.lock: data={'config':engine.config,'jobs':[{k:v for k,v in j.items() if k!='manifest'} for j in sorted(engine.jobs.values(),key=lambda j:j['created'],reverse=True)[:100]],'active':engine.active,'watch_status':engine.watch_status,'scan_error':engine.scan_error,'version':'1.6.4','storage_path_map':host_paths,'source_roots':[str(p) for p in engine.sources],'target_roots':[str(p) for p in engine.targets]}; self.send(200,data)
             elif u.path=='/api/report':
                 ident=q.get('id',[''])[0]
                 with engine.lock:
@@ -168,6 +168,7 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path=='/api/jobs/batch':
                 self.send(201,{'jobs':engine.submit_batch(data.get('sources'),enqueue=data.get('enqueue') is True)})
             elif self.path=='/api/jobs':self.send(201,engine.submit(data['source'],enqueue=data.get('enqueue') is True))
+            elif self.path=='/api/prepare-eject':self.send(200,engine.prepare_eject(data['id']))
             elif self.path=='/api/retry':self.send(201,engine.retry(data['id']))
             elif self.path=='/api/remove':self.send(200,engine.remove(data['id']))
             elif self.path=='/api/presets':self.send(200,engine.presets(data['name'],data.get('options'),data.get('delete') is True))

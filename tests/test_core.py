@@ -1,5 +1,6 @@
-import unittest, tempfile, sys, time, json, threading
+import unittest, tempfile, sys, time, json, threading, os
 from pathlib import Path
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'app'))
 from core import Engine, category, safe_path, mount_candidates, detect, reader_info
 class IngestTest(unittest.TestCase):
@@ -122,6 +123,57 @@ class IngestTest(unittest.TestCase):
             self.e.control(self.e.local.job['id'],'stop'); return original(p,mode)
         self.e.hash=hashing; j=self.run_job(); self.assertEqual(j['status'],'cancelled'); self.assertTrue(j['io_released'])
         with self.assertRaises(ValueError): self.e.control(j['id'],'resume')
+    def test_recent_card_match_and_user_eject(self):
+        source = self.src / 'clip.jpg'
+        source.write_bytes(b'first')
+        job = self.run_job()
+        card = {'identity':'mounted-1', 'path':str(self.src), 'name':'CARD', 'external':True, 'brand':'Sony'}
+        self.assertGreater(self.e.recent_card_match(self.src)[0], time.time())
+        source.write_bytes(b'other')
+        self.assertEqual(self.e.recent_card_match(self.src), (0, False, False))
+        source.write_bytes(b'first')
+        modified = source.stat().st_mtime_ns
+        os.utime(source, ns=(modified, modified + 4_000_000_000))
+        extra = self.src / 'new.jpg'
+        extra.write_bytes(b'new')
+        self.assertEqual(self.e.recent_card_match(self.src), (0, False, False))
+        extra.unlink()
+        (self.src / 'camera.xml').write_bytes(b'camera metadata')
+        expiry, scoped, sampled = self.e.recent_card_match(self.src)
+        self.assertGreater(expiry, time.time())
+        self.assertTrue(scoped)
+        self.assertFalse(sampled)
+        with patch.object(self.e, 'hash', wraps=self.e.hash) as full_hash:
+            self.assertTrue(self.e.recent_card_match(self.src)[2])
+            full_hash.assert_not_called()
+            self.assertFalse(self.e.recent_card_match(self.src, allow_sampled=False)[2])
+            full_hash.assert_called()
+
+        self.e.configure({'auto':True})
+        with patch.object(self.e, 'devices', return_value=[card]), patch('core.mount_candidates', return_value=[card]):
+            self.e.monitor_once()
+            self.e.monitor_once()
+            self.assertTrue(self.e.card_matches[card['identity']][2])
+            self.assertEqual(len(self.e.jobs), 1)
+            with patch.object(self.e, 'hash', wraps=self.e.hash) as full_hash:
+                self.e.monitor_once()
+                full_hash.assert_called()
+            self.assertGreater(self.e.card_matches[card['identity']][0], time.time())
+            self.assertFalse(self.e.card_matches[card['identity']][2])
+            self.assertEqual(len(self.e.jobs), 1)
+            self.assertIn('此卡内容已拷贝', self.e.watch_status)
+            self.e.active = True
+            try:
+                with self.assertRaises(ValueError):
+                    self.e.prepare_eject(job['id'])
+            finally:
+                self.e.active = False
+            self.assertEqual(self.e.prepare_eject(job['id'])['path'], str(self.src))
+            self.assertEqual(self.e.prepared_ejects[str(self.src)], card['identity'])
+        with patch.object(self.e, 'devices', return_value=[]):
+            self.e.monitor_once()
+            self.assertFalse(self.e.prepared_ejects)
+
     def test_auto_insert_reinsert_and_queue(self):
         self.e.configure({'auto':True}); cards=[]; calls=[]
         self.e.devices=lambda:list(cards)

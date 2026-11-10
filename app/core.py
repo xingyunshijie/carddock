@@ -201,7 +201,7 @@ class Engine:
         self.sources = list(dict.fromkeys(self.auto_sources+[Path(p).resolve() for p in manual_roots])); self.targets = [Path(p).resolve() for p in targets]
         self.local = threading.local(); self.io_lock = threading.RLock(); self.blocked_sources = set(); self.controls = {}
         self.readers = json.loads((self.state/'readers.json').read_text()) if (self.state/'readers.json').exists() else {}
-        self.lock = threading.RLock(); self.jobs = {}; self.active = False; self.seen = set(); self.cache = {}; self.scan_error = ''; self.arrivals = {}; self.watch_status = '等待设置自动导入'
+        self.lock = threading.RLock(); self.jobs = {}; self.active = False; self.seen = set(); self.cache = {}; self.scan_error = ''; self.arrivals = {}; self.card_matches = {}; self.checking_card = None; self.prepared_ejects = {}; self.watch_status = '等待设置自动导入'
         self.config = {'setup_complete': False, 'auto': False, 'media_only': False, 'keep_parents': True, 'verify': 'sha256', 'primary': '', 'backups': [], 'brand': '', 'model': '', 'manual_sources': [], 'classify': True, 'exclude_proxies': False, 'directory_template': '{source}', 'filename_template': '', 'project': '', 'camera': '', 'card': '', 'extensions': '', 'date_from': '', 'date_to': '', 'conflict': 'keepBoth', 'backup_from_primary': True}
         if (self.state/'config.json').exists():
             saved = json.loads((self.state/'config.json').read_text())
@@ -321,6 +321,10 @@ class Engine:
                 if key not in self.cache:
                     self.cache[key]={'brand':'','model':'','evidence':'任务已终止，等待拔卡或手动重新开始'} if d['path'] in self.blocked_sources else detect(Path(d['path']))
                 d.update(self.cache[key]); v=os.statvfs(d['path']); d.update(total=v.f_blocks*v.f_frsize,free=v.f_bavail*v.f_frsize)
+                expires, scoped, sampled = self.card_matches.get(key, (0, False, False))
+                d['recent_copy_match'] = expires > time.time()
+                d['recent_copy_scoped'] = d['recent_copy_match'] and scoped
+                d['recent_copy_sampled'] = d['recent_copy_match'] and sampled
                 available.append(d)
             except OSError:
                 # Ejection between mount discovery and inspection must not hide other cards.
@@ -391,6 +395,8 @@ class Engine:
             ident=uuid.uuid4().hex[:12]
             j={'id':ident,'source':str(root),'status':'queued','phase':'等待','created':time.time(),'done':0,'total':0,'bytes_done':0,'bytes_total':0,'destinations':{},'manifest':[],'copied':0,'skipped':0,'safe_to_remove':False,'primary_verified':False,'error':'','options':c,'source_identity': [root.stat().st_dev, root.stat().st_ino], 'target_identities': {str(t):[t.stat().st_dev,t.stat().st_ino] for t in [primary]+backups}}
             self.blocked_sources.discard(str(root))
+            self.prepared_ejects = {p: ident for p, ident in self.prepared_ejects.items()
+                                    if not inside(root, Path(p))}
             self.controls[ident]={'stop':threading.Event(),'pause':threading.Event(),'started':time.monotonic(),'paused_seconds':0}
             j.update(transferred_bytes=0,speed_bps=0,io_released=False)
             self.jobs[ident]=j; self.save_job(j)
@@ -673,14 +679,135 @@ class Engine:
                     self.active=False
                     queued=sorted((x for x in self.jobs.values() if x['status']=='queued'),key=lambda x:x['created'])
                     if queued and j['status']!='cancelled':self.start_job(queued[0])
+    def recent_card_match(self, root, allow_sampled=True):
+        """Return expiry, scope and whether the match used sampling."""
+        with self.lock:
+            recent = sorted((j for j in self.jobs.values() if j['status'] == 'completed'
+                and j.get('selected_scope_verified') and j.get('io_released')
+                and j.get('finished', 0) >= time.time() - 30 * 86400),
+                key=lambda j: j['finished'], reverse=True)
+        if not recent:
+            return 0, False, False
+        whole_card = {str(p.relative_to(root)): snapshot(p) for p in files(root)}
+        if not whole_card:
+            return 0, False, False
+        for job in recent:
+            records = {}
+            for row in job['manifest']:
+                records.setdefault(row['source'], row)
+            is_whole_card = records.keys() == whole_card.keys()
+            scope = job['options']
+            baseline = whole_card if is_whole_card else {
+                name: proof for name, proof in whole_card.items() if selected(root / name, scope)
+            }
+            if records.keys() != baseline.keys() or any(
+                row['bytes'] != baseline[name][2] or not row.get('sha256')
+                for name, row in records.items()
+            ):
+                continue
+            report_key = hashlib.sha256(json.dumps(
+                [job['id'], job['finished'], scope, [(name, records[name]['sha256']) for name in sorted(records)]],
+                sort_keys=True, separators=(',', ':')
+            ).encode()).hexdigest()
+            cache_path = self.state / 'reports' / (report_key + '.cardcheck')
+            signature = self.card_signature(root, baseline)
+            try:
+                cached = cache_path.read_text(encoding="ascii")
+            except (OSError, UnicodeError):
+                cached = None
+            sampled = allow_sampled and cached == signature
+            if sampled or all(self.hash(root / name, 'sha256') == row['sha256'] for name, row in records.items()):
+                current = {str(p.relative_to(root)): snapshot(p) for p in files(root)
+                           if is_whole_card or selected(p, scope)}
+                if current != baseline:
+                    return 0, False, False
+                if not sampled and cached != signature and self.card_signature(root, current) == signature:
+                    temporary = cache_path.with_suffix('.tmp')
+                    try:
+                        cache_path.parent.mkdir(exist_ok=True)
+                        temporary.write_text(signature)
+                        temporary.replace(cache_path)
+                    except OSError:
+                        pass
+                return job['finished'] + 30 * 86400, not is_whole_card, sampled
+        return 0, False, False
+
+    @staticmethod
+    def card_signature(root, baseline):
+        digest = hashlib.sha256()
+        sample_size = 4096
+        for name, proof in sorted(baseline.items()):
+            size, modified = proof[2:4]
+            digest.update(json.dumps([name, size, modified], separators=(',', ':')).encode())
+            path = root / name
+            with path.open('rb') as reader:
+                ranges = [(0, size)] if size <= 3 * sample_size else [
+                    (offset, sample_size) for offset in (0, (size - sample_size) // 2, size - sample_size)
+                ]
+                for offset, length in ranges:
+                    reader.seek(offset)
+                    sample = reader.read(length)
+                    if len(sample) != length:
+                        raise ValueError('核对期间源文件发生变化')
+                    digest.update(sample)
+            if snapshot(path) != proof:
+                raise ValueError('核对期间源文件发生变化')
+        return digest.hexdigest()
+
+    def prepare_eject(self, ident):
+        # The container releases its own I/O. The user ejects from the NAS host.
+        with self.io_lock, self.lock:
+            job = self.jobs.get(ident)
+            if not job or job['status'] != 'completed' or not job.get('io_released') or not job.get('selected_scope_verified'):
+                raise ValueError('请等待拷贝和内容校验完成')
+            if self.active or any(j['status'] == 'queued' for j in self.jobs.values()):
+                raise ValueError('请等待当前任务与队列结束')
+            source = Path(job['source'])
+            card = next((d for d in mount_candidates(self.auto_sources)
+                         if inside(source, Path(d['path']))), None)
+            if card is None:
+                raise ValueError('未找到这次任务的存储卡，请核对设备')
+            if self.checking_card == card['identity']:
+                raise ValueError('正在核对此卡内容，请稍后再推出')
+            info = source.stat()
+            if [info.st_dev, info.st_ino] != job.get('source_identity'):
+                raise ValueError('原存储卡已断开，请核对设备')
+            self.prepared_ejects[card['path']] = card['identity']
+            return card
+
     def monitor_once(self):
         devices=self.devices(); present={d['identity'] for d in devices}
         self.blocked_sources.intersection_update({d['path'] for d in devices})
         self.seen.intersection_update(present)
         self.cache={k:v for k,v in self.cache.items() if k in present}
         self.arrivals={k:v for k,v in self.arrivals.items() if k in present}
+        self.card_matches={k:v for k,v in self.card_matches.items() if k in present}
+        with self.lock:
+            self.prepared_ejects = {p: ident for p, ident in self.prepared_ejects.items() if ident in present}
         for d in devices:
             self.arrivals[d['identity']]=self.arrivals.get(d['identity'],0)+1
+        for d in devices:
+            ident = d['identity']
+            with self.lock:
+                auto = self.config['auto']
+                existing = self.card_matches.get(ident)
+                needs_check = existing is None or (auto and existing[2])
+                if (self.active or not d.get('external') or not needs_check or
+                        d['path'] in self.blocked_sources or d['path'] in self.prepared_ejects or self.arrivals[ident] < 2):
+                    continue
+                self.checking_card = ident
+            try:
+                # A cached result can be shown immediately. Auto mode waits for a full match.
+                matched = self.recent_card_match(Path(d['path']), allow_sampled=existing is None or not auto)
+                if any(card['identity'] == ident and card['path'] == d['path']
+                       for card in mount_candidates(self.auto_sources)):
+                    self.card_matches[ident] = matched
+            except (OSError, ValueError):
+                # Retry after the device stabilizes. Do not auto-import an unexamined card.
+                pass
+            finally:
+                with self.lock:
+                    self.checking_card = None
         if not self.config['auto']:
             self.watch_status='自动导入已暂停'; return
         if self.active:
@@ -688,12 +815,24 @@ class Engine:
         self.watch_status='等待插卡 · 自动识别与导入'
         for d in devices:
             ident=d['identity']
-            if ident in self.seen or d['path'] in self.blocked_sources: continue
+            if ident in self.seen or d['path'] in self.blocked_sources or d['path'] in self.prepared_ejects: continue
+            expires, _, sampled = self.card_matches.get(ident, (0, False, False))
+            if sampled:
+                continue
+            if expires > time.time():
+                self.watch_status = '此卡内容已拷贝，可手动重新拷贝'
+                continue
+            if d.get('external') and ident not in self.card_matches and self.arrivals[ident] >= 2:
+                continue
             if self.arrivals[ident]<2:
                 self.watch_status='检测到存储设备，等待挂载稳定'; continue
             if not (d['brand'] or d['path'] in self.config['manual_sources']):
                 self.watch_status='发现未识别设备，请手动指定媒体目录'; continue
-            self.submit(d['path']); self.seen.add(ident)
+            with self.lock:
+                if self.active or d['path'] in self.blocked_sources or d['path'] in self.prepared_ejects:
+                    continue
+                self.submit(d['path'])
+                self.seen.add(ident)
             self.watch_status='已自动开始导入：'+d['name']; break
     def monitor(self):
         while True:
