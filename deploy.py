@@ -52,7 +52,7 @@ def configuration(a):
         env.update(ADMIN_HTTPS_URL=f'https://{authority}:{a.https_port}',ADMIN_AUTH_SOCKET='/run/carddock-admin/auth.sock',TLS_CERT='/tls/server.crt',TLS_KEY='/tls/server.key')
         ports.append(f'{host}:{a.https_port}:8443')
         volumes.extend([bind('/etc/carddock/tls','/tls',True),bind('/run/carddock-admin','/run/carddock-admin',True)])
-    service={'image':a.image or 'carddock:1.6.3','restart':'unless-stopped','user':f'{a.uid}:{a.gid}','ports':ports,'environment':env,'volumes':volumes,'read_only':True,'tmpfs':['/tmp:size=64m'],'cap_drop':['ALL'],'security_opt':['no-new-privileges:true']}
+    service={'image':a.image or 'carddock:1.6.4','restart':'unless-stopped','user':f'{a.uid}:{a.gid}','ports':ports,'environment':env,'volumes':volumes,'read_only':True,'tmpfs':['/tmp:size=64m'],'cap_drop':['ALL'],'security_opt':['no-new-privileges:true']}
     if not a.image:service['build']={'context':str(ROOT),'args':{'INSTALL_EXIFTOOL':'1'}}
     return {'name':a.project,'services':{'carddock':service}}
 
