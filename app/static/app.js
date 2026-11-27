@@ -46,7 +46,7 @@ function renderPreview(){
  if(!previewData)return;
  const query=$('fileSearch').value.trim().toLowerCase(),category=$('fileFilters').querySelector('.active')?.dataset.category||'';
  const rows=previewData.files.filter(f=>(!category||f.category===category)&&(!query||f.path.toLowerCase().includes(query)));
- $('preview').innerHTML=`<div class="path">${esc(displayPath(selected))}</div><table><thead><tr><th>文件</th><th>类型</th><th>大小</th></tr></thead><tbody>${rows.map(f=>`<tr><td>${esc(f.path)}</td><td class="file-kind">${esc(f.category||'其他')}</td><td>${size(f.size)}</td></tr>`).join('')}</tbody></table>${rows.length?'':'<p class="hint">没有符合搜索条件的预览文件。</p>'}<p class="hint">共 ${previewData.count} 项；预览与搜索显示前 200 项，拷贝处理全部符合归档规则的文件。</p>`;
+ $('preview').innerHTML=`<div class="path">${esc(displayPath(selected))}</div><table><thead><tr><th>文件</th><th>类型</th><th>大小</th></tr></thead><tbody>${rows.map(f=>`<tr><td>${esc(f.path)}</td><td><span class="file-kind" data-kind="${esc(f.category||'其他')}">${esc(f.category==='延时摄影图片序列'?'延时序列':(f.category||'其他'))}</span></td><td>${size(f.size)}</td></tr>`).join('')}</tbody></table>${rows.length?'':'<p class="hint">没有符合搜索条件的预览文件。</p>'}<p class="hint">共 ${previewData.count} 项；预览与搜索显示前 200 项，拷贝处理全部符合归档规则的文件。</p>`;
 }
 const timeLabel=n=>`${Math.floor(n/60)} 分 ${Math.max(0,Math.round(n%60))} 秒`;
 function renderJobs(){
@@ -61,7 +61,7 @@ function renderJobs(){
  if(soundUpdate.events.length&&$('completionSound').checked)playSound(!soundUpdate.events.some(e=>e.kind==='problem'));
 
 }
-async function poll(initial=false){state=await api('state');connectionFailures=0;connectionAlerted=false;$('connection').textContent='● NAS 1.6.4 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
+async function poll(initial=false){state=await api('state');connectionFailures=0;connectionAlerted=false;$('connection').textContent='● NAS 1.6.5 · 服务在线';$('watchStatus').textContent=state.watch_status||'等待插卡';if(initial)fillSettings(state.config);updateAuto();$('start').disabled=state.active;$('runQueue').disabled=state.active;renderJobs();renderLiveProgress();updateFooter();if(state.scan_error)notice('自动扫描：'+state.scan_error,true)}
 async function browse(path=''){
  const sequence=++browseSequence;$('browsePath').disabled=true;browseCurrent='';$('browseUse').disabled=true;$('newFolder').disabled=true;$('browseError').textContent='';$('directories').textContent='正在读取目录…';
  try{

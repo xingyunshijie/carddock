@@ -63,3 +63,132 @@ header{height:var(--app-header-height);padding-top:16px;padding-bottom:16px}
 .naming-path #namingPreview{font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);overflow-wrap:anywhere;margin:9px 0 0;min-height:20px}
 .card .device-icon{width:26px;height:32px;flex-basis:26px}
 @media(max-width:580px){.workflow-card{padding:18px;margin:18px 0}.content-panel .workflow-card h2{font-size:17px}.workflow-card .folder-layout{font-size:12px;width:100%}.identity-card .input-row{align-items:flex-start}}
+
+/* === CardDock Design System V2.0 同步 Token（对齐 Mac & Windows & Figma） === */
+:root{
+  --bg:#f4f7f5;
+  --side:#ebf1ed;
+  --toolbar:rgba(255,255,255,.92);
+  --panel:#ffffff;
+  --panel-elevated:#f9fbfa;
+  --raised:#e2eae5;
+  --line:rgba(20,52,38,.11);
+  --line-subtle:rgba(20,52,38,.06);
+  --accent:#1b5e3e;
+  --accent-hover:#144a30;
+  --accent-soft:rgba(27,94,62,.09);
+  --accent-soft-strong:rgba(27,94,62,.15);
+  --accent-border:rgba(27,94,62,.38);
+  --text:#141d18;
+  --text-secondary:#43524a;
+  --muted:#5b6b63;
+  --hint:#7c8f85;
+  --on-accent:#ffffff;
+  --warn:#c26a14;
+  --warn-bg:#fef6e9;
+  --warn-border:rgba(194,106,20,.30);
+  --danger:#c93b3b;
+  --media-jpg:#256da8;
+  --media-jpg-bg:#eef6fc;
+  --media-proxy:#6b4fa8;
+  --media-proxy-bg:#f4f0fa;
+  --shadow-card:0 1px 2px rgba(10,31,20,.05),0 4px 12px -2px rgba(10,31,20,.04);
+  --app-header-height:64px;
+  --app-footer-height:30px;
+}
+html[data-theme=dark]{
+  color-scheme:dark;
+  --bg:#0c1210;
+  --side:#111a16;
+  --toolbar:rgba(17,26,22,.96);
+  --panel:#15211c;
+  --panel-elevated:#1a2822;
+  --raised:#21332b;
+  --line:rgba(154,212,180,.14);
+  --line-subtle:rgba(154,212,180,.08);
+  --accent:#6be0a0;
+  --accent-hover:#a3ebc2;
+  --accent-soft:rgba(107,224,160,.13);
+  --accent-soft-strong:rgba(107,224,160,.20);
+  --accent-border:rgba(107,224,160,.36);
+  --text:#eaf2ed;
+  --text-secondary:#9eb3a8;
+  --muted:#7c9387;
+  --hint:#647b6f;
+  --on-accent:#0c1210;
+  --warn:#f2aa4c;
+  --warn-bg:#2d210f;
+  --warn-border:rgba(242,170,76,.34);
+  --danger:#f26d6d;
+  --media-jpg:#67b3f0;
+  --media-jpg-bg:#132333;
+  --media-proxy:#a98ee8;
+  --media-proxy-bg:#201930;
+  --shadow-card:0 4px 14px -2px rgba(0,0,0,.36);
+}
+header{background:var(--toolbar);height:var(--app-header-height);padding:10px 16px;gap:10px;backdrop-filter:blur(10px)}
+.logo{width:34px;height:34px;border-radius:8px}
+.wordmark b{font-size:18px;letter-spacing:-.3px}
+.wordmark b span{font-size:14px;color:var(--text-secondary);font-weight:600;margin-left:6px}
+.wordmark small{font-size:8.5px;letter-spacing:2.2px;margin-top:3px}
+.header-links{gap:7px}
+.header-links button{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font-size:11.5px;color:var(--text);font-weight:500}
+.header-links button:hover{background:var(--raised);border-color:var(--accent-border)}
+.workspace-nav button{border-radius:8px;padding:9px 12px;min-height:36px;font-size:12.5px;color:var(--text-secondary);transition:background .15s,color .15s}
+.workspace-nav button:hover{background:var(--raised);color:var(--text)}
+.workspace-nav button.active,html[data-theme=dark] .workspace-nav button.active{background:var(--accent);color:var(--on-accent);font-weight:650}
+.workspace-nav button.active svg{stroke:var(--on-accent)}
+.card{background:var(--panel-elevated);border:1px solid var(--line);border-radius:10px;padding:12px;transition:border-color .15s,box-shadow .15s,background .15s}
+.card.selected{background:var(--panel);border:1.5px solid var(--accent-border);box-shadow:var(--shadow-card);border-left:3.5px solid var(--accent)}
+.batch-button{background:var(--accent-soft-strong);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-weight:600;padding:8px 12px}
+.batch-button:disabled{background:var(--panel);color:var(--muted);border-color:var(--line)}
+.hero{padding:16px 24px 12px}
+.hero h1{font-size:22px;letter-spacing:-.4px;margin:5px 0 4px}
+.summary-strip{background:transparent;border-bottom:1px solid var(--line);padding:0 24px 16px;gap:12px}
+.summary-strip>div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow-card);gap:5px}
+.summary-strip>div:first-child{border-left:1px solid var(--line);padding-left:14px}
+.summary-strip>div:last-child{border-color:var(--accent-border)}
+.summary-strip>div:last-child b{color:var(--accent)}
+.summary-strip b{font-size:20px;letter-spacing:-.4px}
+.preview-section{padding:14px 24px 16px}
+.section-head h2 em{background:var(--accent-soft-strong);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:650;margin-right:7px}
+.search-label{max-width:190px}
+.search-label input:not([type=checkbox]){background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5.5px 12px;font-size:11px;color:var(--text)}
+.search-label input:focus{border-color:var(--accent-border)}
+.filter-bar{margin:10px 0 12px;gap:6px}
+.filter-bar button{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4.5px 11px;font-size:11px;color:var(--text)}
+.filter-bar button.active{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.preview table{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-card);margin-top:10px}
+.preview th{background:var(--panel-elevated);padding:9px 12px;font-size:10.5px;font-weight:600;border-bottom:1px solid var(--line)}
+.preview td{padding:9px 12px;border-bottom:1px solid var(--line-subtle);font-size:11.5px}
+.preview tr:hover td{background:var(--accent-soft)}
+.file-kind{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:650;background:var(--accent-soft);color:var(--accent)}
+.file-kind[data-kind="JPG"],.file-kind[data-kind="其他图片"]{background:var(--media-jpg-bg);color:var(--media-jpg)}
+.file-kind[data-kind="视频"]{background:var(--warn-bg);color:var(--warn)}
+.file-kind[data-kind="视频代理"]{background:var(--media-proxy-bg);color:var(--media-proxy)}
+.file-kind[data-kind="延时摄影图片序列"],.file-kind[data-kind="全景序列"]{background:var(--accent-soft-strong);color:var(--accent)}
+.live-progress{padding:14px 24px 16px;background:var(--side)}
+.progress{height:8px;background:var(--raised);border:0;border-radius:999px}
+html[data-theme=dark] .progress{background:var(--raised)}
+.progress>div{border-radius:999px}
+.destination-scroll{padding:16px 18px 12px}
+.copy-modes{background:var(--raised);padding:3px;border-radius:8px;margin:12px 0 10px;gap:3px}
+.copy-modes button{border-radius:6px;padding:6px 4px;font-size:11.5px;color:var(--text-secondary)}
+.copy-modes button+button{border-left:0}
+.copy-modes button.active,html[data-theme=dark] .copy-modes button.active{background:var(--panel);color:var(--accent);box-shadow:var(--shadow-card);font-weight:650}
+.verify-row{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:0 0 10px}
+.verify-row select{background:transparent;padding:3px 6px;font-weight:600;color:var(--text)}
+.target-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow-card);margin-top:10px}
+.target-card:not(.backup-card){border-color:var(--accent-border)}
+.rules-section label.check{margin:10px 0;font-size:11.5px}
+.start-area{padding:14px 18px 16px;gap:10px}
+.start-area #start{padding:11px 16px;font-size:13.5px;border-radius:9px;box-shadow:var(--shadow-card)}
+.primary,button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.primary:hover,button.primary:hover{background:var(--accent-hover);filter:none}
+.job,.workflow-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow-card)}
+.naming-path{background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:8px}
+.error{color:var(--danger)!important}
+#notice{background:var(--accent-soft-strong);color:var(--text);border-bottom:1px solid var(--accent-border)}
+html[data-theme=dark] #notice{background:var(--panel-elevated)}
+html[data-theme=dark] .logo{background:transparent}
+footer{min-height:var(--app-footer-height);padding:6px 18px;font-size:10px}
